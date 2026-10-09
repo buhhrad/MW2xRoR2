@@ -2234,18 +2234,21 @@ pub unsafe extern "C" fn mw2_loop_start(name: *const u8, len: usize, volume: f32
     .unwrap_or(0)
 }
 
+#[cfg(feature = "dev")]
 /// Start the recorder's tape: every MW2 sound from here on is also mixed on the recording's clock.
 #[unsafe(no_mangle)]
 pub extern "C" fn mw2_tape_start() {
     let _ = catch_unwind(audio::tape_start);
 }
 
+#[cfg(feature = "dev")]
 /// One recorded frame of `dt` seconds went by (the tape's loops play through it).
 #[unsafe(no_mangle)]
 pub extern "C" fn mw2_tape_advance(dt: f32) {
     let _ = catch_unwind(|| audio::tape_advance(dt));
 }
 
+#[cfg(feature = "dev")]
 /// End the tape and write it as a WAV (UTF-8 path); its length in seconds, -1 on failure.
 ///
 /// # Safety

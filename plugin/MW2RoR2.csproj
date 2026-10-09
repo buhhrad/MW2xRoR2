@@ -10,6 +10,18 @@
     <RoR2Managed>C:\Program Files (x86)\Steam\steamapps\common\Risk of Rain 2\Risk of Rain 2_Data\Managed</RoR2Managed>
     <BepInExCore>$(MSBuildThisFileDirectory)..\deps\bepinexpack\BepInEx\core</BepInExCore>
   </PropertyGroup>
+  <!-- Dev builds (-c Dev; tools\deploy.ps1) carry the playtest pilot, the showcase recorder and the
+       playtest test tools. Release builds (-c Release; what ships) leave them out: DevOff.cs stands in. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Dev'">
+    <DefineConstants>$(DefineConstants);MW2_DEV</DefineConstants>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Dev'">
+    <Compile Remove="DevOff.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Dev'">
+    <Compile Remove="Mw2Pilot.cs;Mw2Cinema.cs;Mw2Recorder.cs;Mw2Bot.cs;Mw2Admin.cs" />
+  </ItemGroup>
   <!-- Compile against the user's own game and loader DLLs; nothing is copied or shipped. -->
   <ItemGroup>
     <Reference Include="BepInEx"><HintPath>$(BepInExCore)\BepInEx.dll</HintPath><Private>false</Private></Reference>

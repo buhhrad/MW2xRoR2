@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace MW2RoR2
 {
-    [BepInPlugin(Guid, "MW2 x Risk of Rain 2", "0.4.2")]
+    [BepInPlugin(Guid, "MW2 x Risk of Rain 2", "0.4.3")]
     public unsafe class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.buhhrad.mw2ror2";
@@ -44,7 +44,9 @@ namespace MW2RoR2
         internal ConfigEntry<bool> RoR2Ammo;
         internal ConfigEntry<float> LauncherCooldown, LethalCooldown, TacticalCooldown;
         internal ConfigEntry<float> Volume;
+#if MW2_DEV
         internal ConfigEntry<string> DumpDir;
+#endif
         internal ConfigEntry<string> Killstreaks;
         internal ConfigEntry<float> StreakKillScale, StreakChestChance, StreakLapGrowth, StreakFlightHeight, KillXpScale;
         internal ConfigEntry<KeyCode> TacticalInsertionKey;
@@ -68,7 +70,9 @@ namespace MW2RoR2
         internal string PdataPath;
         internal string PdataFor(bool unlocked) => unlocked ? System.IO.Path.ChangeExtension(PdataPath, null) + "_unlocked.txt" : PdataPath;
         internal ConfigEntry<int> Xp;
+#if MW2_DEV
         internal ConfigEntry<string> PlaytestDir;
+#endif
         internal ConfigEntry<string> ViewHipOffset;
         internal ConfigEntry<string> ViewAdsOffset;
 
@@ -80,7 +84,9 @@ namespace MW2RoR2
         /// apart (pilot runs had pushed every played session out, 10-04-26).
         void OnApplicationQuit()
         {
+#if MW2_DEV
             Mw2Cinema.Unstage(); // a showcase run that didn't finish leaves the player's resolution / HUD as they were
+#endif
             try
             {
                 string src = System.IO.Path.Combine(BepInEx.Paths.BepInExRootPath, "LogOutput.log");
@@ -204,14 +210,18 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
             Faction = Config.Bind("Killstreaks", "Faction", "US", "Announcer voice: US, UK, NS, PG, RU or AB.");
             Xp = Config.Bind("Progress", "Xp", 0, "Your MW2 XP (ranks from mp/ranktable.csv). Kept across runs.");
             KillXpScale = Config.Bind("Progress", "KillXpScale", 0.1f, "XP for a kill as a share of MW2's 100 (RoR2 sends far more enemies than an MW2 match). Elites pay x2, bosses x10. Killstreak and challenge XP stay MW2's. 1 = MW2's.");
+#if MW2_DEV
             // (empty for players: the pilot is a developer tool, off unless pointed at a folder)
             PlaytestDir = Config.Bind("Debug", "PlaytestDir", "", "Developers only. Autonomous playtest: put run.txt in this folder (contents: all, or step-name prefixes) and launch; results land in a timestamped folder. Empty = off.");
+#endif
             UnlockedProfile = Config.Bind("Progress", "UnlockedProfile", false, "Playing on the separate profile with everything unlocked (the Loadout tab's Rank row switches). Your own progress is kept apart.");
             UnlockedXp = Config.Bind("Progress", "UnlockedXp", 0, "XP of the unlocked profile.");
             Prestige = Config.Bind("Progress", "Prestige", 0, "Your MW2 prestige (0-10): the rank icon (mp/rankIconTable.csv). Unlock everything (the Loadout tab's Rank row) sets 10.");
             VehicleScale = Config.Bind("Killstreaks", "VehicleScale", 2f, "Size of killstreak aircraft vs MW2 scale. RoR2's world is built much bigger than MW2's, so true-scale (1) jets look small.");
             RadarRange = Config.Bind("Killstreaks", "RadarRange", 80f, "Metres from the centre to the edge of the minimap.");
+#if MW2_DEV
             DumpDir = Config.Bind("Debug", "DumpDir", "", @"Where F10 writes viewmodel captures. Empty = BepInEx\mw2-captures.");
+#endif
             Volume = Config.Bind("MW2", "WeaponVolume", 0.35f, "Volume of MW2 weapon sounds (0-1), on top of the game's master and SFX sliders.");
             ViewHipOffset = Config.Bind("View", "HipOffset", "6,-7,-6",
                 "First-person gun position at the hip, in MW2 units: forward, left, up (MW2's arms animation normally places it).");
@@ -274,12 +284,14 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
             harmony.PatchAll(typeof(EnemySpeedPatch));
             // Playtest runs work on a copy of the player's data (classes, challenges), like their XP.
             string pdata = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "mw2-ror2", "playerdata.txt");
+#if MW2_DEV
             if (!string.IsNullOrWhiteSpace(PlaytestDir.Value) && System.IO.File.Exists(System.IO.Path.Combine(PlaytestDir.Value, "run.txt")))
             {
                 string copy = System.IO.Path.Combine(PlaytestDir.Value, "pilot_playerdata.txt");
                 try { if (System.IO.File.Exists(pdata)) System.IO.File.Copy(pdata, copy, true); else if (System.IO.File.Exists(copy)) System.IO.File.Delete(copy); } catch (Exception e) { Logger.LogWarning($"pilot playerdata copy: {e.Message}"); }
                 pdata = copy;
             }
+#endif
             PdataPath = pdata;
             if (weaponsOk) Mw2Menus.Init(PdataFor(UnlockedProfile.Value), harmony);
             if (weaponsOk) Mw2Menus.SetPlayerData("experience", Mw2Progress.XpEntry.Value.ToString());
@@ -311,8 +323,10 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
             GlobalEventManager.onCharacterDeathGlobal += report => { Mw2Perf.Kill(); long t0 = Mw2Perf.Begin(); bridge.OnKill(report); Mw2Perf.End("kill", t0); };
             GlobalEventManager.onClientDamageNotified += msg => { bridge.OnDamageNotified(msg); Mw2Net.OnDamage(msg); };
             GlobalEventManager.onServerDamageDealt += bridge.OnServerDamage;
+#if MW2_DEV
             Mw2Pilot.TryStart(PlaytestDir.Value);
-            Logger.LogInfo($"Ready. F6 MW2 mode, F7 first/third person, F8 cycle weapons, F9 debug; M1 fire, M2 ADS, R reload, {StreakKey.Value} killstreak. {Native.mw2_streak_table_count()} MW2 killstreaks loaded.");
+#endif
+            Logger.LogInfo($"Ready. F6 MW2 mode, F7 first/third person, F8 cycle weapons; M1 fire, M2 ADS, R reload, {StreakKey.Value} killstreak. {Native.mw2_streak_table_count()} MW2 killstreaks loaded.");
         }
 
         bool LoadNative()
@@ -374,15 +388,19 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
             }
         }
 
+#if MW2_DEV
         bool hudRecovered;
+#endif
 
         void Update()
         {
             Mw2Watchdog.Beat();
             Mw2Watchdog.Start(); // armed from the first frame on (the load before it may take long)
             // After RoR2 has exec'd its saved config (which would overwrite an earlier hud_enable).
+#if MW2_DEV
             if (!hudRecovered && RoR2.Console.instance != null && Time.realtimeSinceStartup > 20f)
             { hudRecovered = true; Mw2Cinema.RecoverHud(); }
+#endif
             if (!nativeOk) return;
             Mw2Perf.Frame();
             long perf0 = Mw2Perf.Begin();
@@ -413,8 +431,10 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
             else if (In.KeyDown(KeyCode.F8) || (NextWeaponKey.Value != PrimaryKey.Value && NextWeaponKey.Value != SecondaryKey.Value && In.KeyDown(NextWeaponKey.Value))) bridge.CycleWeapon();
             if (In.KeyDown(AltWeaponKey.Value)) bridge.ToggleAlternate();
             if (In.KeyDown(KeyCode.F7)) bridge.ToggleFirstPerson();
+#if MW2_DEV
             if (In.KeyDown(KeyCode.F9)) Logger.LogInfo("[debug] " + bridge.GunDebug());
             if (In.KeyDown(KeyCode.F10)) bridge.DumpViewmodel(string.IsNullOrWhiteSpace(DumpDir.Value) ? System.IO.Path.Combine(BepInEx.Paths.BepInExRootPath, "mw2-captures") : DumpDir.Value);
+#endif
             if (In.KeyDown(CreateAClassKey.Value) && !Mw2Menus.IsOpen && InCharacterSelect() && Mw2Survivor.IsSelected())
             {
                 if (Mw2Progress.CreateAClassUnlocked) Mw2Menus.Open("cac_popup");
@@ -435,8 +455,10 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
             Mw2IntroSkip.Update();
             Mw2Thermal.Update();
             Mw2Perf.End("u.menus", u0); u0 = Mw2Perf.Begin();
+#if MW2_DEV
             Mw2Pilot.Update(bridge, LocalBody());
             Mw2Perf.End("u.pilot", u0); u0 = Mw2Perf.Begin();
+#endif
             bridge.FrameUpdate(LocalBody());
             Mw2Perf.End("u.bridge", u0);
             bridge.SampleKeys();

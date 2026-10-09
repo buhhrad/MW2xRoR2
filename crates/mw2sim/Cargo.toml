@@ -9,6 +9,11 @@ publish = false
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+# Dev builds (tools\deploy.ps1 without -Release): the showcase recorder's sound tape and the playtest
+# pilot's read-only player data. Released builds leave them out.
+dev = []
+
 [dependencies]
 movement_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
 playerstate_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }

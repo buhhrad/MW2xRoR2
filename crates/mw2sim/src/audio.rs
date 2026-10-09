@@ -132,6 +132,7 @@ fn sender() -> Option<&'static Mutex<Sender<Cmd>>> {
 /// Returns false when no output device could be opened.
 pub fn play(pcm: Pcm, volume: f32, pitch: f32) -> bool {
     let pitch = if pitch.is_finite() { pitch.clamp(0.5, 2.0) } else { 1.0 };
+    #[cfg(feature = "dev")]
     tape_one_shot(&pcm, volume.clamp(0.0, 2.0), pitch);
     let Some(tx) = sender() else { return false };
     tx.lock().map(|tx| tx.send(Cmd::Play(pcm, volume.clamp(0.0, 2.0), pitch)).is_ok()).unwrap_or(false)
@@ -145,6 +146,7 @@ pub fn new_loop_id() -> u32 {
 }
 
 pub fn loop_start(id: u32, pcm: Pcm, volume: f32) -> bool {
+    #[cfg(feature = "dev")]
     tape_loop(|t| {
         let volume = t.early.remove(&id).unwrap_or(volume);
         t.loops.insert(id, TapeLoop { pcm: pcm.clone(), volume, pos: 0.0 });
@@ -154,6 +156,7 @@ pub fn loop_start(id: u32, pcm: Pcm, volume: f32) -> bool {
 }
 
 pub fn loop_volume(id: u32, volume: f32) {
+    #[cfg(feature = "dev")]
     tape_loop(|t| match t.loops.get_mut(&id) {
         Some(l) => l.volume = volume.clamp(0.0, 2.0),
         None => {
@@ -166,6 +169,7 @@ pub fn loop_volume(id: u32, volume: f32) {
 }
 
 pub fn loop_stop(id: u32) {
+    #[cfg(feature = "dev")]
     tape_loop(|t| {
         t.loops.remove(&id);
         t.early.remove(&id);
@@ -193,18 +197,23 @@ pub fn rand_range(lo: f32, hi: f32) -> f32 {
 // The showcase recorder runs the game at a fixed 60 frames a step, far slower than real time, so the
 // sound out of the speakers is no use to it. While a tape runs, every play and loop is also mixed
 // here at the recording's own clock (advanced a frame at a time by the recorder) and written out as
-// a WAV the recorder puts under the video.
+// a WAV the recorder puts under the video. Dev builds only (`--features dev`): the recorder isn't in
+// the released mod.
 
+#[cfg(feature = "dev")]
 const TAPE_RATE: u32 = 48_000;
+#[cfg(feature = "dev")]
 /// Ten minutes, stereo.
 const TAPE_MAX_FRAMES: usize = TAPE_RATE as usize * 600;
 
+#[cfg(feature = "dev")]
 struct TapeLoop {
     pcm: Pcm,
     volume: f32,
     pos: f64,
 }
 
+#[cfg(feature = "dev")]
 struct Tape {
     buf: Vec<f32>,
     clock: f64,
@@ -212,11 +221,13 @@ struct Tape {
     early: std::collections::HashMap<u32, f32>,
 }
 
+#[cfg(feature = "dev")]
 fn tape() -> &'static Mutex<Option<Tape>> {
     static TAPE: OnceLock<Mutex<Option<Tape>>> = OnceLock::new();
     TAPE.get_or_init(|| Mutex::new(None))
 }
 
+#[cfg(feature = "dev")]
 fn tape_loop(f: impl FnOnce(&mut Tape)) {
     if let Ok(mut g) = tape().lock()
         && let Some(t) = g.as_mut()
@@ -225,6 +236,7 @@ fn tape_loop(f: impl FnOnce(&mut Tape)) {
     }
 }
 
+#[cfg(feature = "dev")]
 /// Mix `frames` output frames of `pcm` from source frame `pos` (stepping `step` source frames per
 /// output frame, linear between) into the tape at output frame `at`. Returns where the source got to.
 fn mix(buf: &mut Vec<f32>, at: usize, pcm: &Pcm, mut pos: f64, step: f64, frames: usize, volume: f32, wrap: bool) -> f64 {
@@ -255,6 +267,7 @@ fn mix(buf: &mut Vec<f32>, at: usize, pcm: &Pcm, mut pos: f64, step: f64, frames
     pos
 }
 
+#[cfg(feature = "dev")]
 fn tape_one_shot(pcm: &Pcm, volume: f32, pitch: f32) {
     tape_loop(|t| {
         let step = f64::from(pitch) * f64::from(pcm.rate) / f64::from(TAPE_RATE);
@@ -265,6 +278,7 @@ fn tape_one_shot(pcm: &Pcm, volume: f32, pitch: f32) {
     });
 }
 
+#[cfg(feature = "dev")]
 /// Start a fresh tape (the recorder's first frame is its time 0).
 pub fn tape_start() {
     if let Ok(mut g) = tape().lock() {
@@ -272,6 +286,7 @@ pub fn tape_start() {
     }
 }
 
+#[cfg(feature = "dev")]
 /// One recorded frame went by: the loops play through it and the clock moves on.
 pub fn tape_advance(dt: f32) {
     tape_loop(|t| {
@@ -287,6 +302,7 @@ pub fn tape_advance(dt: f32) {
     });
 }
 
+#[cfg(feature = "dev")]
 /// End the tape and write it as a 16-bit stereo WAV at `path`: soft-clipped, the last second faded.
 /// The tape's length in seconds, or -1 when there was none or the file couldn't be written.
 pub fn tape_stop(path: &str) -> f32 {
@@ -321,7 +337,7 @@ pub fn tape_stop(path: &str) -> f32 {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "dev"))]
 mod tape_tests {
     use super::*;
 

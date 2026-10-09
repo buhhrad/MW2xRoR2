@@ -188,7 +188,6 @@ explained in the file; these are the ones you're most likely to want:
   `mw2_stuck\` (at most 12 per session), so stuck spots can be reported and fixed.
 - If the game freezes for 15 seconds, it writes a hang report (a copy of the log and a memory dump of
   the game) to `hangs\`.
-- F10 saves debug pictures of the gun to `mw2-captures\`.
 - It makes no internet connections of its own. In co-op it talks to the other players through
   RoR2's own multiplayer.
 

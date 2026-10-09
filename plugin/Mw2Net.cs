@@ -227,6 +227,7 @@ namespace MW2RoR2
             rm.input.hit = Mw2Character.HitFrom(victim, Space.DirToUnity(Dir(rm.pitch, rm.yaw)), msg);
         }
 
+#if MW2_DEV
         /// Pilot: the echo soldier's last hit (0 = none / no echo).
         public static uint EchoHit()
         {
@@ -234,6 +235,7 @@ namespace MW2RoR2
             if (me == null || !remotes.TryGetValue(NetId(me) | EchoBit, out var rm)) { Plugin.Log.LogInfo($"[pilot] no echo soldier ({remotes.Count} remotes)"); return 0u; }
             return rm.input.hit;
         }
+#endif
 
         static uint NetId(CharacterBody b)
         {

@@ -1657,9 +1657,11 @@ pub extern "C" fn mw2_menu_editing() -> i32 {
     std::panic::catch_unwind(|| i32::from(editing())).unwrap_or(0)
 }
 
-/// Playtest pilot: never write playerdata (its menu tests must not touch the player's classes).
+/// Playtest pilot: never write playerdata (its menu tests must not touch the player's classes). Only
+/// dev builds can turn it on.
 static PDATA_READONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+#[cfg(feature = "dev")]
 #[unsafe(no_mangle)]
 pub extern "C" fn mw2_pdata_readonly(on: i32) {
     PDATA_READONLY.store(on != 0, std::sync::atomic::Ordering::Relaxed);

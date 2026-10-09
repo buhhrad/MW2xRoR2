@@ -374,6 +374,7 @@ namespace MW2RoR2
             return tex;
         }
 
+#if MW2_DEV
         /// Debug (F10): log every submesh's material and render what the overlay camera sees
         /// to PNGs, once with the game shader and once unlit, to compare with the offline render.
         public void Dump(Camera overlay, string dir)
@@ -434,6 +435,7 @@ namespace MW2RoR2
             UnityEngine.Object.Destroy(img);
             RenderTexture.ReleaseTemporary(rt);
         }
+#endif
 
         // Launchers: MW2's loaded rocket (the weapon's rocketModel) rides the gun's tag_clip, so the
         // reload anim carries the new one in; it is gone once fired (mw2_viewmodel_rocket_visible).
@@ -725,6 +727,7 @@ namespace MW2RoR2
             return inside;
         }
 
+#if MW2_DEV
         GameObject rayGo;
         MeshCollider rayCol;
         Mesh rayMesh;
@@ -799,6 +802,7 @@ namespace MW2RoR2
             finally { Physics.queriesHitBackfaces = was; }
             return inside;
         }
+#endif
         /// Which way round a triangle faces the eye (set by the pilot from the rest pose, where the
         /// gun is all front faces).
         public static float BackSign = 1f;

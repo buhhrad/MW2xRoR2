@@ -336,7 +336,9 @@ namespace MW2RoR2
             Mw2Fx.Render(fxCam, Time.deltaTime);
             Mw2Gunfire.Render(fxCam, Time.deltaTime);
         }
+#if MW2_DEV
         public void DumpViewmodel(string dir) => viewmodel.Dump(view.Overlay, dir);
+#endif
 
         bool hudBound;
         int fragsLeft, smokesLeft;
@@ -515,7 +517,9 @@ namespace MW2RoR2
             savedWeapon = null;
         }
 
+#if MW2_DEV
         public string GunDebug() => $"view firstPerson={view.FirstPerson} armed={Armed} | " + gun.Debug(lastCam);
+#endif
 
         public void OnCamera(Camera cam)
         {

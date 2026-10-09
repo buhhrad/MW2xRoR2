@@ -260,10 +260,14 @@ namespace MW2RoR2
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern uint mw2_loop_start(byte* name, UIntPtr len, float volume);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mw2_loop_volume(uint id, float volume);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mw2_loop_stop(uint id);
+#if MW2_DEV
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mw2_tape_start();
+#endif
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mw2_hud_set_lock(int stage, float x, float y);
+#if MW2_DEV
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mw2_tape_advance(float dt);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern float mw2_tape_stop(byte* path, UIntPtr len);
+#endif
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_model_tag_frame(uint model, byte* name, UIntPtr len, float* out9);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern uint mw2_vision(byte* name, UIntPtr len, byte* output, uint cap);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern uint mw2_hud_image(byte* name, UIntPtr len, out uint w, out uint h, byte* output, uint cap);
@@ -350,7 +354,9 @@ namespace MW2RoR2
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern uint mw2_menu_init(byte* pdataPath, UIntPtr len);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_menu_switch_pdata(byte* pdataPath, UIntPtr len);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_menu_open(byte* name, UIntPtr len);
+#if MW2_DEV
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mw2_pdata_readonly(int on);
+#endif
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_menu_text(byte* text, UIntPtr len);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_menu_editing();
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mw2_menu_close_all();
