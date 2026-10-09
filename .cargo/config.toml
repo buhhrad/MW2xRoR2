@@ -1,0 +1,4 @@
+# The C runtime goes inside mw2sim.dll: players without the Visual C++ 2015-2022 Redistributable
+# (RoR2 itself links it statically) would otherwise get a DLL that fails to load.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

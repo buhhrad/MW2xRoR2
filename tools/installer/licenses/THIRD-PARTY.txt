@@ -1,0 +1,24 @@
+MW2 x Risk of Rain 2 - licenses
+
+The mod's own code (MW2RoR2.dll, and the mod's code in mw2sim.dll) is by buhhrad and is under the
+MW2 x Risk of Rain 2 License in LICENSE.md: you can read it and play it, you can't redistribute
+it. The third-party parts below stay under their own licenses.
+
+mw2sim.dll
+  Built on crates from IW4L (https://github.com/vladtrc/iw4L) by vladtrc, via chasmlol's
+  2010 Rust Rewrite Mashup fork (https://github.com/chasmlol/2010-rust-rewrite-mashup, commit
+  f608f85), used unmodified. Apache License 2.0 - see IW4L-LICENSE.txt and IW4L-NOTICE.txt.
+  Plus 48 other Rust crates (MIT, Apache-2.0, BSD-3-Clause, MPL-2.0): the full list and their
+  license texts are in THIRD-PARTY-RUST.txt. The Symphonia audio crates are MPL-2.0 (MPL-2.0.txt),
+  used unmodified; their source is at https://github.com/pdeljanov/Symphonia.
+
+BepInEx 5 (core, preloader)    LGPL-2.1   https://github.com/BepInEx/BepInEx
+UnityDoorstop (winhttp.dll)    LGPL-2.1   https://github.com/NeighTools/UnityDoorstop
+HarmonyX (0Harmony*.dll)       MIT        https://github.com/BepInEx/HarmonyX
+MonoMod                        MIT        https://github.com/MonoMod/MonoMod
+Mono.Cecil                     MIT        https://github.com/jbevain/cecil
+Newtonsoft.Json                MIT        https://github.com/JamesNK/Newtonsoft.Json
+  Unmodified, as shipped in BepInExPack; their source and full license texts are at the links.
+
+No Call of Duty or Risk of Rain 2 game files are included. The mod reads the player's own
+Modern Warfare 2 (2009) install at runtime.

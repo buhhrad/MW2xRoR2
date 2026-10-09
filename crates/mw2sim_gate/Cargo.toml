@@ -1,0 +1,13 @@
+[package]
+name = "mw2sim_gate"
+version = "0.1.0"
+edition.workspace = true
+license-file.workspace = true
+description = "Gate test: IW4L's MW2 movement (movement_iw4) stepped outside IW4L, on a flat floor."
+publish = false
+
+# IW4L (Apache-2.0), from chasm's 2010-rust-rewrite-mashup at a pinned commit.
+[dependencies]
+movement_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+playerstate_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+trace_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }

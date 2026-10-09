@@ -1,0 +1,17 @@
+[package]
+name = "mw2data"
+version = "0.1.0"
+edition.workspace = true
+license-file.workspace = true
+description = "Reads MW2 weapon definitions out of the user's own common_mp.ff via IW4L's fastfile_iw4."
+publish = false
+
+[dependencies]
+fastfile_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+fx_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+miniz_oxide = "0.8"
+weapon_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+xmodel_runtime = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+glam = "0.32.1"
+anim_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }

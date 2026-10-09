@@ -1,0 +1,10 @@
+[workspace]
+resolver = "3"
+members = ["crates/mw2sim_gate", "crates/mw2sim", "crates/mw2data"]
+
+[workspace.package]
+edition = "2024"
+license-file = "LICENSE.md"
+
+[profile.release]
+panic = "unwind"

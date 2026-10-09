@@ -1,0 +1,30 @@
+[package]
+name = "mw2sim"
+version = "0.1.0"
+edition.workspace = true
+license-file.workspace = true
+description = "MW2 player movement (IW4L movement_iw4) behind a C ABI, for hosting inside Risk of Rain 2."
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+movement_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+playerstate_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+trace_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+math_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+weapon_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+entity_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+mw2data = { path = "../mw2data" }
+rodio = { version = "0.19", default-features = false, features = ["symphonia-mp3"] }
+fastfile_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+fx_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+asset_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+xmodel_runtime = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+glam = "0.32.1"
+anim_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+hud_iw4 = { git = "https://github.com/chasmlol/2010-rust-rewrite-mashup", rev = "f608f85e407ff1b7689d54a9aafdd16e95711ac4" }
+
+[dev-dependencies]
+miniz_oxide = "0.8"
