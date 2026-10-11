@@ -2,3 +2,5 @@
 plugin/bin/
 plugin/obj/
 deps/
+tools/catdump/bin/
+tools/catdump/obj/

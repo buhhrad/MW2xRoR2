@@ -15,6 +15,10 @@ https://github.com/user-attachments/assets/95c1cf51-5248-4b14-bf3f-a19d3c2d4766
 The showcase reel (2 minutes; turn the sound on). Also as a
 [download](https://github.com/buhhrad/MW2xRoR2/raw/main/docs/media/showcase.mp4) (9.5 MB MP4).
 
+**Get it:** [MW2xRoR2 on Thunderstore](https://thunderstore.io/c/riskofrain2/p/buhhrad/MW2xRoR2/) for
+any Risk of Rain 2 mod manager, or the manual zip from [Releases](../../releases). Steps are under
+[Install](#install).
+
 ![A run with the mod: MW2's minimap, rank, killstreaks, ammo and compass alongside RoR2's health bar, skills and objective](docs/media/hud.jpg)
 
 *What a run looks like: MW2's minimap and rank (top left), your perks as RoR2 items (top), your
@@ -63,26 +67,21 @@ Experimental. What's been tested and what hasn't:
 
 ## Install
 
-**The Thunderstore listing is waiting for review.** Until it's up, install from
-[Releases](../../releases) with one of the ways below. Once it's listed, any Risk of Rain 2 mod manager
-can install and update it by searching for **MW2xRoR2**. The mod finds MW2 in your Steam libraries by
-itself. Pick the MW2 Soldier on character select.
+MW2xRoR2 is on [Thunderstore](https://thunderstore.io/c/riskofrain2/p/buhhrad/MW2xRoR2/), so any Risk
+of Rain 2 mod manager can install it and keep it updated. Or install it by hand with the manual zip.
+The mod finds MW2 in your Steam libraries by itself. Pick the MW2 Soldier on character select.
 
-### r2modman or Thunderstore Mod Manager (until the listing is up)
+### r2modman or Thunderstore Mod Manager
 
 1. Open the mod manager, pick **Risk of Rain 2** and a profile (a new one is fine).
-2. Go to **Online**, search for **BepInExPack** (by bbepis) and click **Download**. A local mod doesn't
-   bring its dependencies along, so this one comes first.
-3. Download `MW2xRoR2-v<version>-thunderstore.zip` from [Releases](../../releases). Go to
-   **Settings**, open the **Profile** tab, choose **Import local mod** and pick that zip.
-4. Click **Start modded**.
+2. Go to **Online**, search for **MW2xRoR2** and click **Download**. Its dependencies come with it.
+3. Click **Start modded**.
 
-When MW2xRoR2 is listed on Thunderstore, install it from **Online** instead, so you get updates.
+Or click **Install with App** on the [Thunderstore page](https://thunderstore.io/c/riskofrain2/p/buhhrad/MW2xRoR2/).
 
 ### Gale
 
-Wait for the Thunderstore listing (then: **Install mods**, search for **MW2xRoR2**, **Install**,
-**Launch modded**), or use the manual install below.
+**Install mods**, search for **MW2xRoR2**, **Install**, then **Launch modded**.
 
 ### Manual (no mod manager)
 
