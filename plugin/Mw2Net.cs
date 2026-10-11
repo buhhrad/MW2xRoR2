@@ -41,7 +41,7 @@ namespace MW2RoR2
         static float nextPlayer, nextProps;
         // The zip's name plus the compile's id: readable in the mismatch message, still unique per build.
         static readonly string build = Plugin.Version + " #" + typeof(Mw2Net).Assembly.ManifestModule.ModuleVersionId.ToString("N").Substring(0, 6);
-        static bool helloSent;
+        static bool helloSent, contentLogged;
         static Mw2Bridge bridge;
 
         public static bool Online => NetworkClient.active || NetworkServer.active;
@@ -95,6 +95,9 @@ namespace MW2RoR2
         public static void Update()
         {
             Register();
+            // Once, at the title (every catalog built): what a player compares in a bug report.
+            if (!contentLogged && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "title")
+            { contentLogged = true; Plugin.Log.LogInfo($"RoR2 content {ContentSig()} (states/bodies/hash: everyone in a run needs the same)"); }
             var client = NetworkManager.singleton != null ? NetworkManager.singleton.client : null;
             bool connected = client != null && client.isConnected;
             if (!connected) { helloSent = helloAnswered = false; ClearRemotes(); return; }
@@ -544,8 +547,9 @@ namespace MW2RoR2
             // The MW2 items (perks, killstreak pickups) come from each player's MW2 install: both
             // sides need the same set or RoR2's item catalog differs between them.
             w.Write(Mw2Perks.Items.Count); w.Write(Mw2StreakItems.Items.Count);
+            w.Write(ContentSig());
             Send(KHello, w.ToArray());
-            Plugin.Log.LogInfo($"[net] hello sent: build {build}, ABI {Native.ExpectedAbi}");
+            Plugin.Log.LogInfo($"[net] hello sent: build {build}, ABI {Native.ExpectedAbi}, content {ContentSig()}");
         }
 
         static void ReadHello(NetworkReader r)
@@ -553,13 +557,38 @@ namespace MW2RoR2
             string theirs = r.ReadString(); uint abi = r.ReadUInt32();
             bool same = theirs == build && abi == Native.ExpectedAbi;
             int perks = same ? r.ReadInt32() : -1, streakItems = same ? r.ReadInt32() : -1;
+            string content = same ? r.ReadString() : "?";
             bool items = !same || (perks == Mw2Perks.Items.Count && streakItems == Mw2StreakItems.Items.Count);
-            Plugin.Log.LogInfo($"[net] peer build {theirs} ABI {abi}: {(same ? "match" : "MISMATCH")}; items {perks}/{streakItems} vs ours {Mw2Perks.Items.Count}/{Mw2StreakItems.Items.Count}");
+            bool setup = !same || content == ContentSig();
+            Plugin.Log.LogInfo($"[net] peer build {theirs} ABI {abi}: {(same ? "match" : "MISMATCH")}; items {perks}/{streakItems} vs ours {Mw2Perks.Items.Count}/{Mw2StreakItems.Items.Count}; content {content} vs ours {ContentSig()}");
             if (!same) Chat.AddMessage($"<color=#ff6060>MW2 mod mismatch: a player runs build {theirs} (ABI {abi}), you run {build} (ABI {Native.ExpectedAbi}). Everyone needs the same version of the mod.</color>");
             else if (!items) Chat.AddMessage($"<color=#ff6060>MW2 data mismatch: a player's MW2 install gave {perks} perks / {streakItems} streak items, yours {Mw2Perks.Items.Count} / {Mw2StreakItems.Items.Count}. Check everyone has MW2 installed and the mod found it.</color>");
+            else if (!setup) Chat.AddMessage("<color=#ff6060>MW2 setup mismatch: another player's Risk of Rain 2 numbers its content differently from yours, so the run would desync. Usually one of you is missing RoR2BepInExPack (mod managers install it; the manual zip includes it). Everyone needs the same setup.</color>");
             else if (!helloAnswered) { helloAnswered = true; SendHello(); } // late joiners hear back
         }
         static bool helloAnswered;
+
+        /// RoR2's own numbering of entity states and bodies, as "states/bodies/hash". Its network
+        /// messages carry these indexes, so two games that number them differently misread each other:
+        /// RoR2BepInExPack changes the numbering (2047 states vs 1890 without it on RoR2 1.21), and a
+        /// mod-manager player in a manual-install host's run became a boss mid-desync (10-10-26).
+        static string contentSig;
+        static string ContentSig()
+        {
+            if (contentSig != null) return contentSig;
+            uint h = 2166136261u;
+            void Add(string s)
+            {
+                foreach (char c in s ?? "") { h ^= c; h *= 16777619u; }
+                h ^= 0xFFu; h *= 16777619u;
+            }
+            int states = 0;
+            if (HarmonyLib.AccessTools.Field(typeof(EntityStateCatalog), "stateIndexToType")?.GetValue(null) is Type[] types)
+                foreach (var t in types) { Add(t?.FullName); states++; }
+            int bodies = BodyCatalog.bodyCount;
+            for (int i = 0; i < bodies; i++) Add(BodyCatalog.GetBodyName((BodyIndex)i));
+            return contentSig = $"{states}/{bodies}/{h:x8}";
+        }
 
         // ------------------------------------------------------------------ player state
 

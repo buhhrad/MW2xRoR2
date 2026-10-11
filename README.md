@@ -45,15 +45,17 @@ usual.*
 - Windows 10 or 11, 64-bit. No extra runtimes.
 - Tested on RoR2 Steam build 25475991 (the October 8, 2026 update) and MW2 Multiplayer Steam build
   25374019.
-- In co-op, everyone needs the same version of the mod. The lobby tells you if they don't match.
+- In co-op, everyone needs the same version of the mod and RoR2BepInExPack (mod managers install it,
+  the manual zip includes it). The lobby tells you if anything doesn't match.
 
 ## Status
 
 Experimental. What's been tested and what hasn't:
 
 - Solo play is tested on Risk of Rain 2's October 8, 2026 update.
-- Co-op was tested with 2 players before that update and hasn't been re-tested since. 3 and 4 player
-  lobbies haven't been tested.
+- Co-op was tested with 2 players before that update. The first 2-player session on it, between a
+  mod-manager install and a manual install, desynced; v0.4.4 fixes the cause. A full co-op run on the
+  update hasn't been confirmed yet, and 3 and 4 player lobbies haven't been tested.
 - It hasn't been tested alongside other mods. If something breaks with other mods installed, include
   your mod list when you report it.
 - Windows only. Linux and Steam Deck (Proton) haven't been tested.
@@ -90,7 +92,10 @@ Wait for the Thunderstore listing (then: **Install mods**, search for **MW2xRoR2
    **Manual Download**. From its zip, extract what's inside the `BepInExPack` folder into your Risk of
    Rain 2 folder, so `winhttp.dll` sits next to `Risk of Rain 2.exe`.
 3. Download `MW2xRoR2-v<version>-manual.zip` from [Releases](../../releases) and extract it into the
-   same folder. The mod ends up in `BepInEx\plugins\MW2xRoR2`.
+   same folder. The mod ends up in `BepInEx\plugins\MW2xRoR2`, with
+   [RoR2BepInExPack](https://thunderstore.io/c/riskofrain2/p/RiskofThunder/RoR2BepInExPack/) beside it
+   in `BepInEx\plugins\RoR2BepInExPack`. Mod managers install that one too, and co-op needs everyone
+   to have it.
 4. Start Risk of Rain 2 from Steam as usual.
 
 To play without mods, rename `winhttp.dll` in the game folder (for example to `winhttp.dll.off`), and
@@ -173,6 +178,9 @@ explained in the file; these are the ones you're most likely to want:
   (Steam menu > Exit), start it again and launch again.
 - Stuck in the level: press **F6** to turn MW2 mode off, walk out with RoR2's movement, then press
   **F6** again to turn it back on.
+- "MW2 setup mismatch" in the lobby chat: someone's game numbers RoR2's content differently, so the
+  run would desync. Usually a manual install from before v0.4.4, without RoR2BepInExPack: extract the
+  current manual zip over it.
 - "MW2 not found" or "No MW2 weapons loaded" in the log: the mod looks through all your Steam
   libraries for MW2 and didn't find it. Check that MW2's multiplayer is installed, or set
   `CommonMpPath` in `com.buhhrad.mw2ror2.cfg` to your MW2 folder's `zone\<language>\common_mp.ff`.
@@ -218,6 +226,8 @@ coding agent (Anthropic's Claude, through Claude Code).
 - [IW4L](https://github.com/vladtrc/iw4L) by vladtrc, an open-source MW2 (2009) runtime written in Rust, through
   chasmlol's [2010 Rust Rewrite Mashup](https://github.com/chasmlol/2010-rust-rewrite-mashup) fork.
   The mod's movement, weapon, animation and data code is built on their crates (Apache-2.0).
+- [RoR2BepInExPack](https://github.com/risk-of-thunder/RoR2BepInExPack) by Risk of Thunder (MIT),
+  included in the manual zip.
 - [BepInEx](https://github.com/BepInEx/BepInEx), [HarmonyX](https://github.com/BepInEx/HarmonyX) and
   the other libraries listed in `tools/installer/licenses/THIRD-PARTY.txt`.
 

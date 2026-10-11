@@ -18,7 +18,12 @@ HarmonyX (0Harmony*.dll)       MIT        https://github.com/BepInEx/HarmonyX
 MonoMod                        MIT        https://github.com/MonoMod/MonoMod
 Mono.Cecil                     MIT        https://github.com/jbevain/cecil
 Newtonsoft.Json                MIT        https://github.com/JamesNK/Newtonsoft.Json
-  Unmodified, as shipped in BepInExPack; their source and full license texts are at the links.
+  Unmodified, as shipped in BepInExPack and RoR2BepInExPack; their source and full license texts
+  are at the links.
+
+RoR2BepInExPack (manual zip)   MIT        https://github.com/risk-of-thunder/RoR2BepInExPack
+  By Risk of Thunder. Version 1.44.0, unmodified (its runtime files: the documentation XML is left
+  out). License text in BepInEx\plugins\RoR2BepInExPack\LICENSE-RoR2BepInExPack.txt.
 
 No Call of Duty or Risk of Rain 2 game files are included. The mod reads the player's own
 Modern Warfare 2 (2009) install at runtime.

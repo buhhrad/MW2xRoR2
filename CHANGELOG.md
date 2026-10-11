@@ -1,3 +1,12 @@
+## v0.4.4
+
+- Co-op between a mod-manager install and a manual install desynced: players ended up on boss
+  bodies and the game logged errors nonstop. RoR2BepInExPack, which every mod manager installs,
+  changes how Risk of Rain 2 numbers its content, and the manual zip didn't have it. The manual zip
+  now includes RoR2BepInExPack (by Risk of Thunder, MIT).
+- The lobby now also checks that everyone's Risk of Rain 2 numbers its content the same way, and
+  says so in chat if not. The log notes the numbering at the title screen.
+
 ## v0.4.3
 
 - The download no longer includes the developer test tools: the automated playtest runner, the clip

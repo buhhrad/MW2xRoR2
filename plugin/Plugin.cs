@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace MW2RoR2
 {
-    [BepInPlugin(Guid, "MW2 x Risk of Rain 2", "0.4.3")]
+    [BepInPlugin(Guid, "MW2 x Risk of Rain 2", "0.4.4")]
     public unsafe class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.buhhrad.mw2ror2";
