@@ -57,6 +57,12 @@ namespace MW2RoR2
                 // Stopping Power Pro (specialty_armorpiercing)
                 ["PERKS_DESC_ARMOR_DAMAGE"] = "+40% bullet damage vs. bosses.",
                 ["PERKS_UPGRADE_ARMOR_DAMAGE"] = "+Extra Damage Vs. Bosses",
+                // Copycat (Mw2Deathstreaks): the killer's elite aspect, not its class (playtest 10-14-26:
+                // the menu still described MW2's)
+                ["PERKS_DESC_COPYCAT"] = "Killed by an elite? Come back with its power until the stage ends.",
+                ["SPLASHES_COPYCAT_DESC"] = "The power of the elite that killed you, this stage",
+                // Tactical Insertion as equipment: a second plant a stage (the special has one for every class)
+                ["PERKS_DESC_TACTICALINSERTION"] = "Instead of a lethal: a second Tactical Insertion plant each stage.",
             };
             // Marathon: everyone sprints without limit here (config UnlimitedSprint), so it's speed.
             if (Plugin.Instance.UnlimitedSprint.Value) text["PERKS_DESC_MARATHON"] = "Sprint 10% faster.";

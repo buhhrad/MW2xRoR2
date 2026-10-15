@@ -1222,7 +1222,9 @@ namespace MW2RoR2
             centre = inner.center; // you, the dots and the sweep sit on the map's middle, not the art's
             // Dots and arrows stay inside the window too (as a fraction of the half-size, less a margin).
             float edge = inner.width / size - 0.05f;
-            Fill(inner, new Color(0.03f, 0.05f, 0.04f, 0.55f));
+            // Solid: at 0.55 (and the map at 0.9) the stage behind the HUD showed through the radar
+            // (playtest 10-14-26: "i can see environment through it").
+            Fill(inner, new Color(0.03f, 0.05f, 0.04f, 1f));
             float range = Mathf.Max(Plugin.Instance.RadarRange.Value, 5f);
             if (cam != null && body != null)
             {
@@ -1230,7 +1232,7 @@ namespace MW2RoR2
                 if (map != null)
                 {
                     var was = GUI.color;
-                    GUI.color = new Color(0.62f, 0.8f, 0.66f, 0.9f);
+                    GUI.color = new Color(0.62f, 0.8f, 0.66f, 1f);
                     GUI.DrawTexture(inner, map, ScaleMode.StretchToFill, false);
                     GUI.color = was;
                 }

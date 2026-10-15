@@ -41,7 +41,7 @@ use playerstate_iw4::{ENTITYNUM_NONE, PlayerState, UserCmd, pm_flags};
 use trace_iw4::{ENTITYNUM_WORLD, HITTYPE_ENTITY, Trace};
 
 /// Bumped whenever a `#[repr(C)]` struct or a function signature here changes.
-pub const ABI_VERSION: u32 = 31;
+pub const ABI_VERSION: u32 = 33;
 
 /// Sprint length multiplier on MW2's 4 s (host setting: RoR2's maps are far bigger than MW2's).
 static SPRINT_TIME_SCALE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0x3F80_0000); // 1.0
@@ -578,6 +578,24 @@ pub unsafe extern "C" fn mw2_set_origin(sim: *mut Mw2Sim, origin: *const [f32; 3
         sim.ps.origin = unsafe { *origin };
         sim.ps.velocity = [0.0; 3];
         sim.ps.ground_entity_num = ENTITYNUM_NONE;
+        1
+    }))
+    .unwrap_or(0)
+}
+
+/// Move the box without touching its velocity or ground state: the host pushing it back out of
+/// geometry it ended a hair inside (the host's sweeps and overlap tests disagree by millimetres).
+///
+/// # Safety
+/// `sim` from `mw2_create`; `origin` points to three floats.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn mw2_nudge_origin(sim: *mut Mw2Sim, origin: *const [f32; 3]) -> i32 {
+    if sim.is_null() || origin.is_null() {
+        return 0;
+    }
+    catch_unwind(AssertUnwindSafe(|| {
+        let sim = unsafe { &mut *sim };
+        sim.ps.origin = unsafe { *origin };
         1
     }))
     .unwrap_or(0)
@@ -1341,6 +1359,42 @@ pub unsafe extern "C" fn mw2_font_glyphs(name: *const u8, len: usize, out: *mut 
             n as u32
         })
         .unwrap_or(0)
+    }))
+    .unwrap_or(0)
+}
+
+/// MW2's walking bob of the first-person gun this frame: pitch, yaw, roll in degrees (IW4 angles:
+/// pitch + down, yaw + left), from pmove's bob cycle and speed, scaled down while aimed by the
+/// weapon's adsBobFactor and gone at full zoom on a scope. The host turns the viewmodel about the
+/// eye by them (IW4's angles add plus `weapon_bob_rotate_origin`). Port of IW4L weapon_iw4
+/// placement (calculate_weapon_movement_bob_waveform / _bob, weapon_bob_add_to_angles), Apache-2.0.
+///
+/// # Safety
+/// `sim` from `mw2_create`; `out` points to three floats.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn mw2_weapon_bob(sim: *mut Mw2Sim, out: *mut [f32; 3]) -> i32 {
+    if sim.is_null() || out.is_null() {
+        return 0;
+    }
+    catch_unwind(AssertUnwindSafe(|| {
+        let sim = unsafe { &*sim };
+        let ps = &sim.ps;
+        let frac = ps.f_weapon_pos_frac;
+        let (ads_bob_factor, overlay) = sim.armed.as_ref().map_or((1.0, 0), |a| (a.row.ads_bob_factor, a.row.view.overlay_reticle));
+        let mut bob = weapon_iw4::calculate_weapon_movement_bob_waveform(weapon_iw4::WeaponBobWaveformInputs {
+            bob_cycle: (ps.bob_cycle as u32 & 0xff) as u8,
+            xyspeed: ps.velocity[0].hypot(ps.velocity[1]),
+            view_height_target: ps.view_height_target,
+            pm_flags: ps.pm_flags,
+            weapon_pos_frac: frac,
+        });
+        if frac > 0.0 {
+            weapon_iw4::weapon_bob_apply_ads_attenuation(&mut bob, frac, ads_bob_factor);
+        }
+        let mut angles = [0.0f32; 3];
+        weapon_iw4::weapon_bob_add_to_angles(&mut angles, bob, frac, overlay);
+        unsafe { *out = angles };
+        1
     }))
     .unwrap_or(0)
 }
@@ -3236,6 +3290,99 @@ mod tests {
             }
             let speed = (st.velocity[0].powi(2) + st.velocity[1].powi(2)).sqrt();
             assert!((speed - 285.0).abs() < 0.01, "scaled walk speed {speed}");
+            mw2_destroy(sim);
+        }
+    }
+
+    /// `floor` as RoR2's adapter answers it (UnityWorld.Trace): a start box overlapping the floor is
+    /// startsolid, and allsolid when the end box overlaps too.
+    extern "C" fn floor_unity(
+        user: *mut c_void,
+        start: *const [f32; 3],
+        end: *const [f32; 3],
+        mins: *const [f32; 3],
+        maxs: *const [f32; 3],
+        mask: u32,
+        out: *mut Mw2Trace,
+    ) {
+        floor(user, start, end, mins, maxs, mask, out);
+        let (end, mins) = unsafe { (*end, *mins) };
+        let out = unsafe { &mut *out };
+        if out.startsolid != 0 && end[2] + mins[2] < 0.0 {
+            out.allsolid = 1;
+        }
+    }
+
+    /// The "stuck anywhere, at random" bug (players, 10-14-26): a box left a hair inside the floor
+    /// starts every sweep solid, so pmove can't move it any way, while the ground trace (which starts
+    /// 0.25 up) still says grounded. Nudged back out it walks on, and the nudge keeps its velocity.
+    #[test]
+    fn box_a_hair_in_the_floor_is_frozen_until_nudged_out() {
+        unsafe {
+            let sim = mw2_create(&[0.0, 0.0, 16.0]);
+            let mut st = Mw2State::default();
+            let idle = Mw2Input { msec: 8, speed_scale: 1.0, fire_rate: 1.0, ..Default::default() };
+            let walk = Mw2Input { forwardmove: 127, ..idle };
+            for _ in 0..125 {
+                mw2_step(sim, &idle, Some(floor_unity), std::ptr::null_mut(), &mut st);
+            }
+            assert_eq!(st.grounded, 1);
+
+            let at = st.origin;
+            assert_eq!(mw2_nudge_origin(sim, &[at[0], at[1], -0.1]), 1);
+            for _ in 0..125 {
+                mw2_step(sim, &walk, Some(floor_unity), std::ptr::null_mut(), &mut st);
+            }
+            let moved = st.origin[0] - at[0];
+            assert!(moved.abs() < 1.0, "a hair in the floor, 1 s of walking moved {moved} units");
+            assert_eq!(st.grounded, 1, "and still reads as grounded");
+
+            let at = st.origin;
+            mw2_nudge_origin(sim, &[at[0], at[1], 0.125]);
+            for _ in 0..50 {
+                mw2_step(sim, &walk, Some(floor_unity), std::ptr::null_mut(), &mut st);
+            }
+            let moved = st.origin[0] - at[0];
+            assert!(moved > 40.0, "nudged out, 0.4 s of walking moved {moved} units");
+
+            // Walking at speed, a nudge doesn't stop him (mw2_set_origin would).
+            let speed = st.velocity[0];
+            let at = st.origin;
+            mw2_nudge_origin(sim, &[at[0], at[1], at[2] + 0.1]);
+            mw2_step(sim, &walk, Some(floor_unity), std::ptr::null_mut(), &mut st);
+            assert!(st.velocity[0] > speed * 0.9, "speed {speed} -> {} after the nudge", st.velocity[0]);
+            mw2_destroy(sim);
+        }
+    }
+
+    /// The first-person gun bobs while walking and is still when standing (playtest 10-14-26:
+    /// "a first person walking animation of the gun"): the bob swings both ways over a few steps.
+    #[test]
+    fn gun_bobs_when_walking_not_when_standing() {
+        unsafe {
+            let sim = mw2_create(&[0.0, 0.0, 16.0]);
+            let mut st = Mw2State::default();
+            let idle = Mw2Input { msec: 8, speed_scale: 1.0, fire_rate: 1.0, ..Default::default() };
+            let walk = Mw2Input { forwardmove: 127, ..idle };
+            let mut bob = [0.0f32; 3];
+            for _ in 0..125 {
+                mw2_step(sim, &idle, Some(floor), std::ptr::null_mut(), &mut st);
+            }
+            assert_eq!(mw2_weapon_bob(sim, &mut bob), 1);
+            assert!(bob.iter().all(|a| a.abs() < 1e-4), "standing: {bob:?}");
+            let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
+            for _ in 0..250 {
+                mw2_step(sim, &walk, Some(floor), std::ptr::null_mut(), &mut st);
+                mw2_weapon_bob(sim, &mut bob);
+                for a in 0..3 {
+                    lo[a] = lo[a].min(bob[a]);
+                    hi[a] = hi[a].max(bob[a]);
+                }
+            }
+            eprintln!("walking bob range: pitch {:.2}..{:.2}, yaw {:.2}..{:.2}, roll {:.2}..{:.2} deg", lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]);
+            assert!(lo[0] < -0.1 && hi[0] > 0.1, "pitch swings both ways: {lo:?} {hi:?}");
+            assert!(lo[1] < -0.1 && hi[1] > 0.1, "yaw swings both ways: {lo:?} {hi:?}");
+            assert!(hi.iter().chain(lo.iter()).all(|a| a.abs() <= weapon_iw4::WEAPON_BOB_MAX), "within MW2's cap");
             mw2_destroy(sim);
         }
     }

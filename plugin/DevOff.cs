@@ -28,6 +28,7 @@ namespace MW2RoR2
         public static bool AttackPulse, StreakPulse, CrouchPulse, PronePulse, InteractPulse;
         public static int GunPulse = -1;
         public static Vector3 ViewForward => Vector3.forward;
+        public static bool MoveAlongView => false;
         public static bool ThirdOnlyTest => false;
         public static bool ThirdOnlyConfigTest => false;
         public static void Steer(Transform cam) { }

@@ -148,7 +148,7 @@ fn abi_sizes() {
     assert_eq!(size_of::<Mw2Missile>(), 56);
     assert_eq!(size_of::<Mw2MissileEvent>(), 52);
     assert_eq!(size_of::<Mw2Equipment>(), 44);
-    assert_eq!(crate::ABI_VERSION, 31);
+    assert_eq!(crate::ABI_VERSION, 33);
 }
 
 #[test]

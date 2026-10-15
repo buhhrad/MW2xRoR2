@@ -146,6 +146,29 @@ namespace MW2RoR2
             if (mask == MissileMask) EnemySweep(su, halfU, dir, dist, start, end, r);
         }
 
+        /// The player's box (mins -15,-15,0, maxs 15,15,`height`) at `origin` overlaps the world:
+        /// exactly the test Trace makes of a sweep's start, so true means every sweep from there is
+        /// startsolid.
+        public static bool HullOverlaps(Vec3f origin, float height)
+        {
+            HullBox(origin, height, out var center, out var halfU);
+            return Physics.CheckBox(center, halfU, Quaternion.identity, Mask, QueryTriggerInteraction.Ignore);
+        }
+
+        /// What the player's box at `origin` overlaps (collider name and type), for the logs.
+        public static string HullColliders(Vec3f origin, float height)
+        {
+            HullBox(origin, height, out var center, out var halfU);
+            return string.Join(", ", Physics.OverlapBox(center, halfU, Quaternion.identity, Mask, QueryTriggerInteraction.Ignore)
+                .Select(c => $"{c.name} ({c.GetType().Name})"));
+        }
+
+        static void HullBox(Vec3f origin, float height, out Vector3 center, out Vector3 halfU)
+        {
+            center = Space.ToUnity(new Vec3f(origin.x, origin.y, origin.z + height * 0.5f));
+            halfU = new Vector3(15f, height * 0.5f, 15f) * Space.Scale - new Vector3(SkinMetres, SkinMetres, SkinMetres);
+        }
+
         /// IW4L MASK_SHOT (equipment.rs MISSILE_MASK): only projectile sweeps pass it.
         const uint MissileMask = 0x0280_6831;
 
@@ -592,6 +615,11 @@ namespace MW2RoR2
                     // (Aimed swaps too: their odd frame was the camera's recoil reset - off the camera now.)
                     Mw2Cinema.SwapDissolve(viewmodel.PreviousRoot, viewmodel.RootObject);
                 }
+                // MW2's walking bob (playtest 10-14-26: the gun sat dead still while walking). The
+                // showcase's held frames stay still, as its camera does.
+                var bob = default(Vec3f);
+                if (!(Mw2Pilot.Active && Mw2Cinema.Recording)) Native.mw2_weapon_bob(sim, out bob);
+                viewmodel.Bob = viewmodelLeft.Bob = new Vector3(bob.x, bob.y, bob.z);
                 viewmodel.Step(sim, Time.deltaTime, !Scoped);
                 if (weaponName != null && weaponName.IndexOf("_heartbeat", StringComparison.OrdinalIgnoreCase) >= 0) Mw2Heartbeat.Update(body, cam.transform);
                 foreach (var alias in viewmodel.TakeSounds()) { if (alias == Mw2Viewmodel.SkipAlias) continue; audio.PlayAlias(alias, 1f); Plugin.Log.LogInfo($"[vmsound] {alias}"); }
@@ -1109,6 +1137,30 @@ namespace MW2RoR2
         bool crouchPressed, pronePressed;
 
         /// Per frame: killstreak input and updates.
+        // RoR2's temporary visual effects around a body (Topaz Brooch's barrier bubble, slows, banners...)
+        // are sized for the survivor's capsule. The MW2 soldier stands WorldScale times taller, and his
+        // first-person eye sat at the barrier bubble's top, its shell across the view (playtest 10-14-26).
+        // In first person they're hidden (the body is too); in third person they fit the soldier.
+        static readonly System.Reflection.FieldInfo[] tempEffectFields = typeof(CharacterBody)
+            .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+            .Where(f => f.FieldType == typeof(TemporaryVisualEffect)).ToArray();
+        readonly Dictionary<TemporaryVisualEffect, Renderer[]> tempEffectRenderers = new Dictionary<TemporaryVisualEffect, Renderer[]>();
+
+        void FitTempEffects()
+        {
+            if (body == null) return;
+            bool fp = view.FirstPerson;
+            float scale = Mathf.Max(Plugin.Instance.WorldScale.Value, 0.1f);
+            foreach (var f in tempEffectFields)
+            {
+                if (!(f.GetValue(body) is TemporaryVisualEffect fx) || fx == null) continue;
+                fx.transform.localScale = Vector3.one * scale;
+                if (!tempEffectRenderers.TryGetValue(fx, out var rs)) tempEffectRenderers[fx] = rs = fx.GetComponentsInChildren<Renderer>(true);
+                foreach (var r in rs) if (r != null && r.enabled == fp) r.enabled = !fp;
+            }
+            if (tempEffectRenderers.Count > 32) foreach (var k in tempEffectRenderers.Keys.Where(k => k == null).ToList()) tempEffectRenderers.Remove(k);
+        }
+
         public void FrameUpdate(CharacterBody current)
         {
             if (Active) Mw2Feedback.Update(current, audio, Time.deltaTime);
@@ -1122,6 +1174,7 @@ namespace MW2RoR2
             if (Active) Mw2Deathstreaks.Update(this);
             UpdateOma();
             Mw2TacticalInsertion.Update();
+            if (Active) FitTempEffects();
             Mw2Challenges.Update(streaks);
             Mw2RoR2Hud.Apply(Active && Mw2MenuHud.Ready);
             // Warm-up steps build meshes on the main thread (30-90 ms each). During the prematch freeze
@@ -1296,10 +1349,15 @@ namespace MW2RoR2
             }
         }
 
+        /// The class gave up its lethal for Tactical Insertion: a second plant per stage on top of the
+        /// MW2 Soldier's special, which every class has (playtest 10-14-26: the pick did nothing).
+        public bool ClassTiEquipment { get; internal set; }
+
         void GiveClassEquipment()
         {
             var cfg = Plugin.Instance;
             var cls = ClassLoadout();
+            ClassTiEquipment = cls != null && cls[2] == "specialty_tacticalinsertion";
             if (cls != null)
             {
                 // Equipment that isn't a weapon (Tactical Insertion, Blast Shield) leaves no lethal.
@@ -1455,7 +1513,7 @@ namespace MW2RoR2
             long p0 = Mw2Perf.Begin();
             if (Active) streaks.OnKill();
             Mw2Perf.End("k.streak", p0); p0 = Mw2Perf.Begin();
-            if (Active) progress.Add(Mw2Progress.KillXp(kind));
+            if (Active) progress.Add(Mw2Progress.KillXp(kind), Mw2Progress.KillScore(kind));
             Mw2Perf.End("k.xp", p0); p0 = Mw2Perf.Begin();
             if (!Armed) return;
             // Gun challenges count bullet kills; the perk Pro challenges by kind of kill.
@@ -1661,6 +1719,14 @@ namespace MW2RoR2
 
         void Release()
         {
+            // RoR2's own size and visibility back on the effects (F6 off mid-barrier).
+            foreach (var kv in tempEffectRenderers)
+            {
+                if (kv.Key == null) continue;
+                kv.Key.transform.localScale = Vector3.one;
+                foreach (var r in kv.Value) if (r != null) r.enabled = true;
+            }
+            tempEffectRenderers.Clear();
             streaks.Detach();
             streaks.Sim = IntPtr.Zero;
             viewmodel.Destroy();
@@ -1860,6 +1926,7 @@ namespace MW2RoR2
             if (launchTicks > 0 && last.grounded == 0) launchTicks = 0; // airborne: the launch took
             SprintDistance(wasAt, wasSprinting);
             if (ok != 1) { Release(); RefreshEnemyStats(); return; }
+            Depenetrate();
             target = Space.ToUnity(last.origin) + footToTransform;
             haveTarget = true;
             Unstick(dt);
@@ -2131,6 +2198,110 @@ namespace MW2RoR2
             Plugin.Log.LogInfo("MW2 movement: player box was wedged in geometry; lifted clear.");
         }
 
+        /// The sim's box height for its stance (IW4 STAND / CROUCH / PRONE_MAXS_Z).
+        float HullHeight => (last.pmFlags & 0x1) != 0 ? 30f : (last.pmFlags & 0x2) != 0 ? 50f : 70f;
+
+        // A box left a hair inside the world: Unity's sweeps and its overlap test disagree by millimetres
+        // on RoR2's terrain and meshes, and from a box that overlaps, every sweep starts solid. MW2
+        // movement then can't go any way while its ground trace (which starts 0.25 up) still reads
+        // grounded, and the stuck hop can't lift him either: "stuck anywhere, at random", F6 the only
+        // way out (players, 10-14-26; the unit test box_a_hair_in_the_floor_is_frozen_until_nudged_out).
+        // Checked after every step and moved to the nearest clear spot, velocity kept.
+        // The same goes for a box seated where it doesn't fit: RoR2 puts the body (teleporter, drop pod,
+        // out-of-map return, the ground-node escape) where its capsule fits, and MW2's box is half as tall
+        // again (WorldScale 1.5) and square - under a rock lip or between a boulder and the ground it sat
+        // inside the world, and the lift-only ClearStart couldn't get past the rock above (pilot
+        // spotreplay 10-14-26). Shells from a hair (the usual case, 0.25 units) out to 2.5 m, each tried
+        // straight up first, then up and out, level, down and out, straight down.
+        static readonly float[] OutRadiiMetres = { 0.01f, 0.02f, 0.04f, 0.08f, 0.15f, 0.25f, 0.4f, 0.6f, 0.9f, 1.3f, 1.8f, 2.5f };
+        const float NearRadiusMetres = 0.25f;
+        static readonly Vector3[] OutDirs = BuildOutDirs();
+        static Vector3[] BuildOutDirs()
+        {
+            var ring = new List<Vector3>();
+            for (int x = -1; x <= 1; x++)
+                for (int z = -1; z <= 1; z++)
+                    if (x != 0 || z != 0) ring.Add(new Vector3(x, 0f, z));
+            var dirs = new List<Vector3> { Vector3.up };
+            dirs.AddRange(ring.Select(d => (d + Vector3.up).normalized));
+            dirs.AddRange(ring.Select(d => d.normalized));
+            dirs.AddRange(ring.Select(d => (d - Vector3.up).normalized));
+            dirs.Add(Vector3.down);
+            return dirs.ToArray();
+        }
+        float nextFarSearch;
+
+        /// Pilot A/B: leave the box where the sweeps put it (the old behaviour).
+        internal static bool DepenetrateOff;
+        /// Steps that ended with the box inside the world / times that began / times it was moved out (pilot).
+        public int EmbedTicks { get; private set; }
+        public int EmbedEpisodes { get; private set; }
+        public int EmbedFixed { get; private set; }
+        bool wasEmbedded;
+        float lastEmbedLog = -10f;
+
+        void Depenetrate()
+        {
+            float h = HullHeight;
+            bool inside = UnityWorld.HullOverlaps(last.origin, h);
+            if (!inside) { wasEmbedded = false; return; }
+            EmbedTicks++;
+            if (!wasEmbedded) EmbedEpisodes++;
+            wasEmbedded = true;
+            if (DepenetrateOff) return;
+            var o = last.origin;
+            // The far shells are a few hundred box tests: twice a second at most while nothing is found.
+            bool far = Time.time >= nextFarSearch;
+            foreach (float r in OutRadiiMetres)
+            {
+                if (r > NearRadiusMetres && !far) break;
+                foreach (var dir in OutDirs)
+                {
+                    var d = Space.DirToIw(dir * (r / Space.Scale));
+                    var p = new Vec3f(o.x + d.x, o.y + d.y, o.z + d.z);
+                    if (UnityWorld.HullOverlaps(p, h)) continue;
+                    if (Time.time - lastEmbedLog > 5f || r > NearRadiusMetres)
+                    {
+                        lastEmbedLog = Time.time;
+                        string line = $"box inside {UnityWorld.HullColliders(o, h)} at {Space.ToUnity(o)}, {(last.grounded != 0 ? "grounded" : "airborne")}; moved out ({d.x:F2}, {d.y:F2}, {d.z:F2}) units = {r:F2} m (stage {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name})";
+                        Plugin.Log.LogInfo($"MW2 movement: {line}");
+                        StuckLog(line, false);
+                    }
+                    Native.mw2_nudge_origin(sim, ref p);
+                    last.origin = p;
+                    EmbedFixed++;
+                    wasEmbedded = false;
+                    return;
+                }
+            }
+            if (!far) return;
+            nextFarSearch = Time.time + 0.5f;
+            // Nothing clear within 2.5 m: UnstickGrounded / Unstick still lift him (up to 3 m), F6 hands
+            // the body back to RoR2.
+            if (Time.time - lastEmbedLog > 5f)
+            {
+                lastEmbedLog = Time.time;
+                Plugin.Log.LogInfo($"MW2 movement: box inside {UnityWorld.HullColliders(o, h)} at {Space.ToUnity(o)} with no clear spot within 2.5 m");
+            }
+        }
+
+        /// Pilot: leave the sim's box `units` inside the ground under it, velocity and ground state kept
+        /// (the state the stuck-anywhere bug left players in).
+        internal bool TestEmbed(float units)
+        {
+            if (sim == IntPtr.Zero) return false;
+            var o = last.origin;
+            float h = HullHeight;
+            var half = new Vector3(15f, h * 0.5f, 15f) * Space.Scale - Vector3.one * 0.001f;
+            var from = Space.ToUnity(new Vec3f(o.x, o.y, o.z + h * 0.5f + 4f));
+            if (!Physics.BoxCast(from, half, Vector3.down, out var hit, Quaternion.identity, 20f * Space.Scale, UnityWorld.Mask, QueryTriggerInteraction.Ignore)) return false;
+            // The box's bottom resting on what's under it, then `units` lower.
+            o.z = (from.y - hit.distance - half.y) / Space.Scale - units;
+            Native.mw2_nudge_origin(sim, ref o);
+            last.origin = o;
+            return UnityWorld.HullOverlaps(o, h);
+        }
+
         // On the ground, pushing to move, going nowhere (playtest 10-04-26: still stuck in spots; none of
         // the other checks fired). Walking into a wall looks the same, so the box is only re-seated
         // when it actually overlaps the world; either way the spot is logged to reproduce it.
@@ -2178,8 +2349,10 @@ namespace MW2RoR2
             StuckCount++;
             stuckStreak++;
             var feet = Space.ToUnity(last.origin);
-            var half = new Vector3(14f, 34f, 14f) * Space.Scale; // the 30x30x70 box, a unit in from each side
-            bool inside = Physics.CheckBox(feet + Vector3.up * (half.y + Space.Scale), half, Quaternion.identity, UnityWorld.Mask, QueryTriggerInteraction.Ignore);
+            // The box the sweeps use: the old check sat a unit in from every side and called a box that
+            // was a hair in the ground "clear (a wall?)" - stuck for good, hopping on the spot.
+            bool inside = UnityWorld.HullOverlaps(last.origin, HullHeight);
+            if (inside) StuckInsideCount++;
             float blocked = BlockedHeight(feet, pushDir);
             // Pinned below something a jump clears, or wedged with no ground to jump from (RoR2's
             // steep little bowls - MW2 calls 45+ degrees unwalkable, RoR2's terrain doesn't): the hop
@@ -2218,6 +2391,8 @@ namespace MW2RoR2
             Native.mw2_set_origin(sim, ref origin);
         }
         int stuckStreak;
+        /// Stuck stops where the box was inside the world (pilot).
+        public int StuckInsideCount { get; private set; }
         Vector3 nodeAt;
         /// Times the stuck escape moved him to a ground node (pilot).
         public int NodeOutCount { get; private set; }
@@ -2268,6 +2443,19 @@ namespace MW2RoR2
             if (divergedFor > 0.2f && sim != IntPtr.Zero)
             {
                 divergedFor = 0f;
+                // The other way round: RoR2's capsule couldn't follow where the sim's box went (MW2 steps
+                // up 18 units, more than RoR2's motor, and the capsule catches on mesh edges the box rides
+                // over). Pulling the sim back only rubber-banded him at the same ledge (lakes 10-06-26:
+                // parted 28 times in 96 s). With the sim's box clear and the capsule fitting
+                // there, the body goes to the sim; only a sim inside the world comes back to the body.
+                if (!BodySnapOff && !UnityWorld.HullOverlaps(last.origin, HullHeight) && BodyFits(target))
+                {
+                    motor.Motor.SetPosition(target);
+                    BodySnapCount++;
+                    Plugin.Log.LogInfo($"MW2 movement: the body couldn't follow the sim ({gap.magnitude:F2} m); moved it there.");
+                    StuckLog($"the body couldn't follow the sim ({gap.magnitude:F2} m) at {motorPosition}; moved it there (stage {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name})", false);
+                    return Vector3.zero;
+                }
                 Reseat(motorPosition, $"the sim and the body parted by {gap.magnitude:F2} m");
                 return Vector3.zero;
             }
@@ -2280,6 +2468,25 @@ namespace MW2RoR2
         }
 
         float divergedFor;
+        /// Times the body was moved to the sim it couldn't follow (pilot).
+        public int BodySnapCount { get; private set; }
+        /// Pilot A/B: pull the sim back to the body instead (the old behaviour).
+        internal static bool BodySnapOff;
+        /// RoR2's step height for the body, metres (pilot).
+        public float BodyStepHeight => motor != null && motor.Motor != null ? motor.Motor.MaxStepHeight : -1f;
+
+        /// The survivor's capsule fits with its transform at `at` (world geometry only, a centimetre slack).
+        bool BodyFits(Vector3 at)
+        {
+            var cap = motor != null && motor.Motor != null ? motor.Motor.Capsule : null;
+            if (cap == null || body == null) return false;
+            var t = body.transform;
+            float s = t.lossyScale.y;
+            float r = cap.radius * s - 0.01f;
+            float half = Mathf.Max(cap.height * s * 0.5f - cap.radius * s, 0f);
+            var c = at + t.rotation * (cap.center * s);
+            return r > 0f && !Physics.CheckCapsule(c + Vector3.up * half, c - Vector3.up * half, r, UnityWorld.Mask, QueryTriggerInteraction.Ignore);
+        }
 
 
         /// Pilot: push the sim's box `metres` into the ground under the body (the stuck-in-terrain bug).

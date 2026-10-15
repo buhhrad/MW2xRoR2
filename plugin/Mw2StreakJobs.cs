@@ -92,6 +92,52 @@ namespace MW2RoR2
             if (Mw2Killstreaks.NoSoundBroadcast == 0) Mw2Killstreaks.SoundBroadcast?.Invoke(Native.WeaponString(weapon, 5), at);
         }
 
+        // MW2's aircraft guns sound as a playLoopSound for the length of a burst (_helicopter.gsc:1634,
+        // _harrier.gsc:526: weap_cobra_20mm_fire_npc), not a sound per round: harrier_20mm_mp,
+        // cobra_20mm_mp and pavelow_minigun_mp have no fire sound of their own, so a sound per round
+        // was silent (playtest 10-14-26: "not all of the turrets sound like they are shooting").
+        protected sealed class GunLoop
+        {
+            public readonly string Alias;
+            public uint Id;
+            public float LastShot = -10f, NextBroadcast;
+            public GunLoop(string alias) { Alias = alias; }
+        }
+        readonly List<GunLoop> gunLoops = new List<GunLoop>();
+        static readonly HashSet<string> missingLoops = new HashSet<string>(), startedLoops = new HashSet<string>();
+        protected GunLoop NewGunLoop(string alias) { var g = new GunLoop(alias); gunLoops.Add(g); return g; }
+
+        /// A round from `g`: its loop runs while it keeps firing, as loud as the gun is near. Heard from
+        /// farther than a sound per round (aircraft fly ~100 m up). The others hear the clip from where
+        /// it fires, once per 2.5 s of a burst (its length).
+        protected void GunLoopShot(GunLoop g, Vector3 at, float scale = 0.5f)
+        {
+            if (g.Id == 0)
+            {
+                g.Id = Mw2Audio.LoopStart(g.Alias);
+                g.NextBroadcast = 0f;
+                if (g.Id == 0 && missingLoops.Add(g.Alias)) Plugin.Log.LogWarning($"MW2 gun loop: no sound alias {g.Alias}");
+                else if (g.Id != 0 && startedLoops.Add(g.Alias)) Plugin.Log.LogInfo($"MW2 gun loop: {g.Alias}");
+            }
+            g.LastShot = Age;
+            if (g.Id != 0) Mw2Audio.LoopVolume(g.Id, Near(at, 40f, 400f) * scale * K.SoundScale);
+            if (Age < g.NextBroadcast) return;
+            g.NextBroadcast = Age + 2.5f;
+            if (Mw2Killstreaks.NoSoundBroadcast == 0) Mw2Killstreaks.SoundBroadcast?.Invoke(g.Alias, at);
+        }
+
+        /// stopLoopSound once a gun has gone quiet (no round for 0.25 s: longer than any fire time).
+        protected void GunLoopsTick()
+        {
+            foreach (var g in gunLoops)
+                if (g.Id != 0 && Age - g.LastShot > 0.25f) { Mw2Audio.LoopStop(g.Id); g.Id = 0; }
+        }
+
+        void StopGunLoops()
+        {
+            foreach (var g in gunLoops) if (g.Id != 0) { Mw2Audio.LoopStop(g.Id); g.Id = 0; }
+        }
+
         static readonly Dictionary<string, uint> weaponIds = new Dictionary<string, uint>();
         protected static uint Weapon(string name)
         {
@@ -128,6 +174,7 @@ namespace MW2RoR2
         /// The job is over (Mw2Killstreaks): its End, then the aim it borrowed back.
         public void Stop()
         {
+            StopGunLoops();
             End();
             if (pyStarted) SetAim(Body, Quaternion.Euler(startPy.x, startPy.y, 0f) * Vector3.forward);
             else if (startAim != Vector3.zero) SetAim(Body, startAim);
@@ -1203,6 +1250,7 @@ namespace MW2RoR2
         readonly Vector3 inDir;
         bool arrived, leaving;
         float nextMove, burst, nextShot, pause;
+        GunLoop gunLoop;
         CharacterBody target;
 
         float inY;
@@ -1285,11 +1333,13 @@ namespace MW2RoR2
                         burst--;
                         var aimAt = target.footPosition + Vector3.up * U(50f);
                         Mw2Strike.Bullet(Body, pos, (aimAt - pos).normalized, 40f, 16000f, 1.5f);
-                        WeaponSound(Weapon("harrier_20mm_mp"), pos, 0.4f);
+                        if (gunLoop == null) gunLoop = NewGunLoop("weap_cobra_20mm_fire_npc"); // _harrier.gsc:526
+                        GunLoopShot(gunLoop, pos);
                     }
                     if (burst <= 0f) pause = 1f;
                 }
             }
+            GunLoopsTick();
             return true;
         }
 
@@ -1344,6 +1394,7 @@ namespace MW2RoR2
             public Vector2 aimOffset;
             public string tag;
             public Transform model; // the Pave Low's weapon_minigun on its gunner tag
+            public GunLoop loop;
         }
 
         public override string Airspace => "chopper";
@@ -1454,6 +1505,7 @@ namespace MW2RoR2
             var heading = vel.sqrMagnitude > 4f && !arrived ? Flat(vel) : face;
             if (heli != null) pos = heli.Fly(pos, heading, dt);
             if (entry >= 0f) foreach (var g in guns) Fire(g, dt, heli != null ? heli.Forward : heading);
+            GunLoopsTick();
             return true;
         }
 
@@ -1518,7 +1570,10 @@ namespace MW2RoR2
                 // From the barrel: rounds go where the turret actually points (bursts walk on).
                 var dir = turret != null ? Vector3.Slerp(turret.Barrel, (aimAt - muzzle).normalized, 0.5f).normalized : (aimAt - muzzle).normalized;
                 Mw2Strike.Bullet(Body, muzzle, dir, dmg, 16000f, 1f);
-                WeaponSound(Weapon(pavelow ? "pavelow_minigun_mp" : "cobra_20mm_mp"), pos, 0.35f);
+                // The Cobra's is _helicopter.gsc:1634's loop. The Pave Low's door guns are turrets whose
+                // sound our weapon reader doesn't capture: MW2's minigun gatling loop stands in.
+                if (g.loop == null) g.loop = NewGunLoop(pavelow ? "blackhawk_minigun_gatling_fire_loop" : "weap_cobra_20mm_fire_npc");
+                GunLoopShot(g.loop, muzzle);
             }
             if (g.burst <= 0f)
             {

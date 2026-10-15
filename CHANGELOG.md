@@ -1,3 +1,29 @@
+## v0.4.5
+
+- Getting stuck at random with nothing in the way (the main thing players reported): MW2's player
+  box could end up less than a centimetre inside the ground. From there MW2 movement couldn't move it
+  any way, and the automatic hop couldn't either; F6 was the only way out. The box is now checked
+  after every movement step and moved back out, keeping your speed.
+- If Risk of Rain 2 puts you somewhere MW2's box doesn't fit (it is bigger than the survivor), such
+  as under a rock lip or against a boulder, the way out now looks in every direction up to 2.5 m
+  instead of only straight up, and the survivor's body follows MW2's box out instead of pulling it
+  back in.
+- F6 still turns MW2 mode off and on if you do get stuck, and the spot is still saved to
+  `mw2_stuck.log`.
+- Kill popups read MW2's numbers again (+100, elites +200, bosses +1000). The XP you earn is still
+  the reduced RoR2 rate.
+- The minimap is solid: the level behind the HUD no longer shows through it.
+- Copycat now works in Risk of Rain 2: if an elite killed you, you come back with that elite's power
+  (Blazing, Glacial, Overloading...) until the stage ends. A normal monster leaves nothing to copy.
+  Its Create-a-Class description says so.
+- Tactical Insertion as your class's lethal now does something: a second plant each stage, on top of
+  the one every class gets on X. Its Create-a-Class description says so.
+- The first-person gun bobs as you walk, as in MW2 (less when aiming, none at full zoom on a scope).
+- Effects around your character (Topaz Brooch's barrier bubble, slows, banners) no longer cover the
+  first-person view, and in third person they're sized to the MW2 soldier.
+- The Attack Helicopter, Pave Low and Harrier guns are heard firing. In MW2 their gunfire is a looping
+  sound for each burst, which wasn't played; it is now, and from farther away.
+
 ## v0.4.4
 
 - Co-op between a mod-manager install and a manual install desynced: players ended up on boss

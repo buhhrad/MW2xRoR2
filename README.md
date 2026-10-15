@@ -63,7 +63,8 @@ Experimental. What's been tested and what hasn't:
 - It hasn't been tested alongside other mods. If something breaks with other mods installed, include
   your mod list when you report it.
 - Windows only. Linux and Steam Deck (Proton) haven't been tested.
-- Balance is still being tuned, and you can still snag on some RoR2 geometry (F6 gets you out).
+- Balance is still being tuned. v0.4.5 fixes getting stuck at random; if you still get stuck somewhere,
+  F6 gets you out, and the spot saved in `BepInEx\mw2_stuck.log` helps fix it.
 
 ## Install
 

@@ -65,7 +65,9 @@ namespace MW2RoR2
             if (!Mw2Pilot.Moving || b == null) return b != null ? b.moveVector : Vector3.zero;
             // Relative to the aim the sim steers by (the pilot's own view could be off by 90 deg:
             // forward became a strafe, so it never sprinted).
-            var f = b.aimDirection; f.y = 0f; f = f.sqrMagnitude > 1e-4f ? f.normalized : Vector3.forward;
+            var bridge = Plugin.Instance != null ? Plugin.Instance.Bridge : null;
+            var f = Mw2Pilot.MoveAlongView && bridge != null && bridge.ViewFirstPerson ? Mw2Pilot.ViewForward : b.aimDirection;
+            f.y = 0f; f = f.sqrMagnitude > 1e-4f ? f.normalized : Vector3.forward;
             var r = new Vector3(f.z, 0f, -f.x);
             return Vector3.ClampMagnitude(f * Mw2Pilot.Fwd + r * Mw2Pilot.Right, 1f);
         }

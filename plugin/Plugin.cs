@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace MW2RoR2
 {
-    [BepInPlugin(Guid, "MW2 x Risk of Rain 2", "0.4.4")]
+    [BepInPlugin(Guid, "MW2 x Risk of Rain 2", "0.4.5")]
     public unsafe class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.buhhrad.mw2ror2";
@@ -321,6 +321,7 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
             if (camUpdate != null) harmony.Patch(camUpdate, postfix: new HarmonyMethod(typeof(CameraKickPatch), nameof(CameraKickPatch.Postfix)));
             else Logger.LogWarning("CameraRigController update not found; MW2 recoil won't show on the camera.");
             GlobalEventManager.onCharacterDeathGlobal += report => { Mw2Perf.Kill(); long t0 = Mw2Perf.Begin(); bridge.OnKill(report); Mw2Perf.End("kill", t0); };
+            if (weaponsOk) GlobalEventManager.onCharacterDeathGlobal += Mw2Deathstreaks.ServerDeath;
             GlobalEventManager.onClientDamageNotified += msg => { bridge.OnDamageNotified(msg); Mw2Net.OnDamage(msg); };
             GlobalEventManager.onServerDamageDealt += bridge.OnServerDamage;
 #if MW2_DEV
@@ -410,6 +411,7 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
         void UpdateInner()
         {
             if (weaponsOk) Mw2MenuMusic.Update();
+            if (weaponsOk) Mw2Deathstreaks.ServerUpdate();
             if (weaponsOk) Mw2LoadoutRows.Update();
             Mw2DeathCam.Update();
             if (weaponsOk) Mw2Survivor.Regen();

@@ -19,7 +19,7 @@ namespace MW2RoR2
 
         // Playtest pilot runs keep XP in memory only, so test kills never touch the player's saved rank.
         static int? pilotXp;
-        static int Xp
+        internal static int Xp
         {
             get => Mw2Pilot.Active ? (pilotXp ?? (pilotXp = XpEntry.Value)).Value : XpEntry.Value;
             set { if (Mw2Pilot.Active) pilotXp = value; else XpEntry.Value = value; }
@@ -125,14 +125,19 @@ namespace MW2RoR2
             return Mathf.Max(1, Mathf.RoundToInt(xp));
         }
 
-        public void Add(int amount)
+        /// A kill's score as MW2 shows it (100, elites x2, bosses x10): the popup's number, while the XP
+        /// it pays is KillXp's scaled-down share (playtest 10-14-26: "+10" didn't feel like MW2).
+        public static int KillScore(byte kind) => Mathf.RoundToInt(Score("kill") * (kind == 2 ? 10f : kind == 1 ? 2f : 1f));
+
+        /// `amount` XP; the popup reads `shown` when given (a kill's MW2 score), else the XP.
+        public void Add(int amount, int shown = 0)
         {
             if (amount <= 0) return;
             if (!haveRank || dirty) Refresh();
             uint before = rank.id;
             Xp = Xp + amount;
             Mw2Menus.SetPlayerData("experience", Xp.ToString());
-            popups.Add(new Popup { amount = amount, at = Time.unscaledTime });
+            popups.Add(new Popup { amount = shown > 0 ? shown : amount, at = Time.unscaledTime });
             Refresh();
             if (haveRank && rank.id > before)
             {

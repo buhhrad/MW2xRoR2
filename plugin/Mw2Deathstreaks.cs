@@ -24,7 +24,10 @@ namespace MW2RoR2
     ///   Final Stand: the next lethal hit leaves 1 health and puts you prone with a pistol for 20 s,
     ///     then you get back up at full health (lastStandRespawnPlayer).
     ///   Martyrdom (specialty_grenadepulldeath): your frag goes off where you die, after its fuse.
-    ///   Copycat: copies a teammate's class (MW2: the killer's) - needs multiplayer.
+    ///   Copycat (MW2: you come back with your killer's class): RoR2's killers are monsters, so you come
+    ///     back with what an elite killer had - its aspect (Blazing, Glacial, Overloading...) on the
+    ///     new body, which lasts until the stage ends. A plain monster leaves nothing to copy, like
+    ///     MW2 when the world kills you (playtest 10-14-26). The host records the killer and gives it.
     static class Mw2Deathstreaks
     {
         static Run run;
@@ -105,8 +108,69 @@ namespace MW2RoR2
             {
                 case "specialty_combathigh": painkillerFrom = Time.time; break;
                 case "specialty_finalstand": finalStandArmed = true; break;
-                case "specialty_copycat": Plugin.Log.LogInfo("MW2 Copycat: copies a teammate's class - multiplayer only, nothing to copy"); break;
+                case "specialty_copycat": break; // the host gives the copied aspect (ServerCopycat)
             }
+        }
+
+        // ---------------------------------------------------------------- Copycat (host)
+
+        /// Host: the elite aspect each MW2 player's last killer carried, waiting for their next body.
+        static readonly System.Collections.Generic.Dictionary<CharacterMaster, BuffDef> copied = new System.Collections.Generic.Dictionary<CharacterMaster, BuffDef>();
+        static Run copiedRun;
+
+        /// Host: an MW2 player died - remember the killer's elite aspect (none: nothing to copy).
+        public static void ServerDeath(DamageReport report)
+        {
+            if (!NetworkServer.active || report == null || report.victimMaster == null || !Mw2Survivor.IsMw2(report.victimBody)) return;
+            if (copiedRun != Run.instance) { copied.Clear(); copiedRun = Run.instance; }
+            var aspect = EliteAspect(report.attackerBody);
+            if (aspect != null) copied[report.victimMaster] = aspect;
+            else copied.Remove(report.victimMaster);
+        }
+
+        internal static BuffDef EliteAspect(CharacterBody b)
+        {
+            if (b == null || !b.isElite) return null;
+            // An elite's aspect is a buff tied to its elite (Blazing's AffixRed, ...).
+            for (int i = 0; i < BuffCatalog.buffCount; i++)
+            {
+                var buff = BuffCatalog.GetBuffDef((BuffIndex)i);
+                if (buff != null && buff.isElite && b.HasBuff(buff)) return buff;
+            }
+            return null;
+        }
+
+        /// Pilot: as if an elite with `aspect` had just killed the local player and he came back with Copycat.
+        internal static void PilotCopycat(CharacterMaster m, BuffDef aspect)
+        {
+            copiedRun = Run.instance;
+            copied[m] = aspect;
+            active = "specialty_copycat";
+        }
+
+        /// Host, every frame: a player back with Copycat as their deathstreak gets the copied aspect on
+        /// their body. The body ends with the stage, and the aspect with it.
+        public static void ServerUpdate()
+        {
+            if (!NetworkServer.active || copied.Count == 0) return;
+            var bridge = Plugin.Instance != null ? Plugin.Instance.Bridge : null;
+            CharacterMaster done = null;
+            foreach (var kv in copied)
+            {
+                var body = kv.Key != null ? kv.Key.GetBody() : null;
+                if (body == null || body.healthComponent == null || !body.healthComponent.alive || !Mw2Survivor.IsMw2(body)) continue;
+                // The local player's deathstreak once MW2 mode has the new body (OnSpawn ran), or a
+                // client's from its KClass status (it comes a moment after spawn).
+                string ds;
+                if (bridge != null && body == bridge.LocalBody) { if (!bridge.Active || bridge.Body != body) continue; ds = active; }
+                else { var st = Mw2Net.StatusOf(body); if (st == null) continue; ds = st.deathstreak; }
+                done = kv.Key;
+                if (ds != "specialty_copycat") break; // came back with another deathstreak: nothing to give
+                if (!body.HasBuff(kv.Value)) body.AddBuff(kv.Value);
+                Plugin.Log.LogInfo($"MW2 Copycat: {kv.Key.name} carries {kv.Value.name} this stage");
+                break;
+            }
+            if (done != null) copied.Remove(done);
         }
 
         /// Host: is this MW2 player down in Last Stand / Final Stand (the host's own, or a client's)?

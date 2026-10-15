@@ -94,6 +94,8 @@ pub struct WeaponRow {
     pub view: crate::Mw2WeaponView,
     /// Idle sway amounts (scope sway when an overlay reticle is up).
     pub idle: weapon_iw4::WeaponIdleInputs,
+    /// adsBobFactor: how much of the walking bob is left when aimed (`mw2_weapon_bob`).
+    pub ads_bob_factor: f32,
     /// FX names per `weapon_fx::FX_*` kind (view flash, world flash, view / world shell eject,
     /// view / world last-shot eject), as `mw2_fx_find` takes them.
     pub effects: [Option<String>; 6],
@@ -288,6 +290,7 @@ pub fn load(path: &std::path::Path) -> Result<usize, String> {
                     idle_crouch_factor: w.geometry.idle.idle_crouch_factor,
                     idle_prone_factor: w.geometry.idle.idle_prone_factor,
                 },
+                ads_bob_factor: w.geometry.ads_bob_factor,
                 view: crate::Mw2WeaponView {
                     ads_zoom_fov: w.geometry.ads_zoom_fov,
                     ads_zoom_in_frac: w.geometry.ads_zoom_in_frac,

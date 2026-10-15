@@ -587,13 +587,19 @@ namespace MW2RoR2
             return go;
         }
 
+        /// MW2's walking bob this frame (mw2_weapon_bob: IW4 pitch + down, yaw + left, roll, degrees).
+        public Vector3 Bob;
+
         void Inspect()
         {
             TwoSided(InspectEuler != Vector3.zero || InspectShift != Vector3.zero);
             if (InspectEuler == Vector3.zero && InspectShift == Vector3.zero)
             {
+                // The root sits at the eye (the pose is relative to the view bone): turning it there is
+                // IW4's bob, angles added and the gun's origin turned about the eye with them. IW4
+                // pitch + down is Unity +x; yaw + left and roll flip with the handedness.
                 root.transform.localPosition = Vector3.zero;
-                root.transform.localRotation = Quaternion.identity;
+                root.transform.localRotation = Quaternion.Euler(Bob.x, -Bob.y, -Bob.z);
                 return;
             }
             if (gunBone == -2)

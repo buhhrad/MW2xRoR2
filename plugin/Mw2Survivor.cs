@@ -223,7 +223,7 @@ namespace MW2RoR2
             Fire.icon = Mw2BindIcons.Get(false, false);
             Ads.icon = Mw2BindIcons.Get(true, false);
             OneManArmy = Skill("OMA", Perk("specialty_onemanarmy", 2), "Choose a different class mid-fight. MW2's One Man Army: the change takes 6 s (3 s with One Man Army Pro).", typeof(OneManArmyState), 30f, PerkIcon("specialty_onemanarmy"));
-            TacticalInsertion = Skill("TI", Perk("specialty_tacticalinsertion", 2), $"Plant MW2's Tactical Insertion flare where you stand. Die while it's down and you come back on it. Once per stage. Your special key, or {Plugin.Instance.TacticalInsertionKeyInPlay}.", typeof(TacticalInsertionState), 0f, PerkIcon("specialty_tacticalinsertion"));
+            TacticalInsertion = Skill("TI", Perk("specialty_tacticalinsertion", 2), $"Plant MW2's Tactical Insertion flare where you stand. Die while it's down and you come back on it. Once per stage, twice with Tactical Insertion as your class's equipment. Your special key, or {Plugin.Instance.TacticalInsertionKeyInPlay}.", typeof(TacticalInsertionState), 0f, PerkIcon("specialty_tacticalinsertion"));
 
             var loc = Body.GetComponent<SkillLocator>();
             SetFamily(loc.primary, Fire);
@@ -414,21 +414,33 @@ namespace MW2RoR2
         static uint fx;
         static float nextFx;
         static Stage plantedStage, usedStage;
+        /// Plants made this stage (usedStage's).
+        static int plants;
 
         static bool thrown;
         static float thrownAt;
         static CharacterBody thrower;
 
+        /// One plant a stage; two when the class's equipment is Tactical Insertion (it gave up its
+        /// grenade for it). The host allows at most MaxPlants.
+        public const int MaxPlants = 2;
+        static int Allowed => Plugin.Instance.Bridge.ClassTiEquipment ? MaxPlants : 1;
+        internal static int PlantsThisStage => usedStage == Stage.instance ? plants : 0;
+        /// Pilot: a flare is in the air / one is down.
+        internal static bool Throwing => thrown;
+        internal static bool FlareDown => flare != null;
+        static void Spend() { plants = PlantsThisStage + 1; usedStage = Stage.instance; }
+
         public static void Use(CharacterBody body, GenericSkill skill)
         {
-            if (body == null || flare != null || usedStage == Stage.instance) return;
+            if (body == null || thrown || PlantsThisStage >= Allowed) return;
             // MW2: the flare is ignited and tossed down (flare_mp's animations); it plants where it lands.
             if (Plugin.Instance.Bridge.LocalBody2 == body && Plugin.Instance.Bridge.ThrowTacticalInsertion())
             {
                 thrown = true;
                 thrownAt = Time.time;
                 thrower = body;
-                usedStage = Stage.instance;
+                Spend();
                 return;
             }
             // Dropped at your feet: on the ground below you (RoR2's isGrounded isn't kept under MW2
@@ -438,13 +450,14 @@ namespace MW2RoR2
                 skill?.AddOneStock();
                 return;
             }
+            Spend();
             Plant(body, hit.point);
         }
 
         /// The thrown flare came to rest: plant it there (on the ground below, if it stopped on a wall).
         public static void Landed(CharacterBody body, Vector3 pos)
         {
-            if (!thrown || flare != null) return;
+            if (!thrown) return;
             thrown = false;
             Plugin.Log.LogInfo($"MW2 tactical insertion: flare down at {pos}");
             if (Physics.Raycast(pos + Vector3.up * 0.3f, Vector3.down, out var hit, 6.5f, LayerIndex.world.mask, QueryTriggerInteraction.Ignore)) pos = hit.point;
@@ -453,8 +466,9 @@ namespace MW2RoR2
 
         static void Plant(CharacterBody body, Vector3 point)
         {
+            Clear(); // the second plant moves the flare
             at = point;
-            plantedStage = usedStage = Stage.instance;
+            plantedStage = Stage.instance;
             flare = Mw2Prop.Build("mil_emergency_flare_mp", body, Space.Scale);
             flare?.transform.SetPositionAndRotation(at, Quaternion.Euler(0f, body.transform.eulerAngles.y, 0f));
             Mw2Audio.PlayUi("weap_c4_plant"); // the plant (approximate: MW2 uses the equipment's raise)
@@ -474,7 +488,7 @@ namespace MW2RoR2
             // Used this stage: a respawned body (full stock again) doesn't get another.
             var me = LocalUserManager.GetFirstLocalUser()?.cachedBody; // dead bodies too (MW2 mode lets go of them)
             var sp = me != null && Mw2Survivor.IsMw2(me) ? me.skillLocator?.special : null;
-            if (sp != null && sp.stock > 0 && usedStage != null && usedStage == Stage.instance) sp.RemoveAllStocks();
+            if (sp != null && sp.stock > 0 && PlantsThisStage >= Allowed) sp.RemoveAllStocks();
             // The flare is spent once you've come back on it (or you're up again some other way).
             if (flare != null && me != null && me.healthComponent != null && !me.healthComponent.alive) dying = true;
             else if (flare != null && dying && me != null && me.healthComponent != null && me.healthComponent.alive) { dying = false; Clear(); }
@@ -495,14 +509,17 @@ namespace MW2RoR2
         // ---------------------------------------------------------------- host
 
         static readonly Dictionary<CharacterMaster, (Vector3 at, Stage stage)> planted = new Dictionary<CharacterMaster, (Vector3, Stage)>();
-        static readonly Dictionary<CharacterMaster, Stage> spent = new Dictionary<CharacterMaster, Stage>();
+        static readonly Dictionary<CharacterMaster, (Stage stage, int n)> spent = new Dictionary<CharacterMaster, (Stage, int)>();
 
-        /// Host: `body`'s player planted at `at` (once per stage per player).
+        /// Host: `body`'s player planted at `at` (the player's own count is 1 or 2 a stage by class;
+        /// the host caps it at MaxPlants). A second plant moves the flare.
         public static void ServerPlant(CharacterBody body, Vector3 at)
         {
             var m = body != null ? body.master : null;
-            if (m == null || Stage.instance == null || (spent.TryGetValue(m, out var s) && s == Stage.instance)) return;
-            spent[m] = Stage.instance;
+            if (m == null || Stage.instance == null) return;
+            int n = spent.TryGetValue(m, out var s) && s.stage == Stage.instance ? s.n : 0;
+            if (n >= MaxPlants) return;
+            spent[m] = (Stage.instance, n + 1);
             planted[m] = (at, Stage.instance);
             Plugin.Log.LogInfo($"MW2 tactical insertion planted at {at} for {m.name}");
         }
