@@ -1,19 +1,15 @@
 # MW2 x Risk of Rain 2
 
-MW2 (2009) running inside Risk of Rain 2. You play the MW2 Soldier, a new survivor built out of MW2:
-its movement, guns, viewmodel and animations, sounds, recoil, HUD and menus, all read from your own
-copy of MW2. Risk of Rain 2 handles the damage, items and enemies, so your RoR2 items work off MW2
-guns.
+MW2 (2009) inside Risk of Rain 2. You play the MW2 Soldier, a new survivor built from your own MW2
+install: its guns, movement, viewmodel, sounds, HUD and menus. Risk of Rain 2 still runs the damage,
+items and enemies, so your RoR2 items work off MW2 guns.
 
-MW2 was made for small maps and small lobbies, not RoR2's huge stages and endless waves, so some of it is
-tuned to play well there: you move faster and jump higher than in MW2, sprint never runs out, ammo
-works RoR2-style, damage is scaled to RoR2's enemies and killstreaks take more kills. Each of those
-is a setting you can change (see [Loadout and settings](#loadout-and-settings)).
+Tuned for RoR2's big stages and endless waves: faster movement, unlimited sprint, RoR2-style ammo,
+scaled damage and longer killstreaks. Each is a [setting](#loadout-and-settings).
 
 https://github.com/user-attachments/assets/95c1cf51-5248-4b14-bf3f-a19d3c2d4766
 
-The showcase reel (2 minutes; turn the sound on). Also as a
-[download](https://github.com/buhhrad/MW2xRoR2/raw/main/docs/media/showcase.mp4) (9.5 MB MP4).
+2-minute showcase, sound on ([MP4 download](https://github.com/buhhrad/MW2xRoR2/raw/main/docs/media/showcase.mp4), 9.5 MB).
 
 **Get it:** [MW2xRoR2 on Thunderstore](https://thunderstore.io/c/riskofrain2/p/buhhrad/MW2xRoR2/) for
 any Risk of Rain 2 mod manager, or the manual zip from [Releases](../../releases). Steps are under
@@ -21,9 +17,7 @@ any Risk of Rain 2 mod manager, or the manual zip from [Releases](../../releases
 
 ![A run with the mod: MW2's minimap, rank, killstreaks, ammo and compass alongside RoR2's health bar, skills and objective](docs/media/hud.jpg)
 
-*What a run looks like: MW2's minimap and rank (top left), your perks as RoR2 items (top), your
-killstreaks (right), weapon and ammo (bottom right), with RoR2's health, skills and objective as
-usual.*
+*MW2's minimap, rank, perks, killstreaks and ammo alongside RoR2's health, skills and objective.*
 
 ![Heartbeat sensor on an M4](docs/media/heartbeat.jpg)
 
@@ -54,17 +48,13 @@ usual.*
 
 ## Status
 
-Experimental. What's been tested and what hasn't:
-
-- Solo play is tested on Risk of Rain 2's October 8, 2026 update.
-- Co-op was tested with 2 players before that update. The first 2-player session on it, between a
-  mod-manager install and a manual install, desynced; v0.4.4 fixes the cause. A full co-op run on the
-  update hasn't been confirmed yet, and 3 and 4 player lobbies haven't been tested.
-- It hasn't been tested alongside other mods. If something breaks with other mods installed, include
-  your mod list when you report it.
-- Windows only. Linux and Steam Deck (Proton) haven't been tested.
-- Balance is still being tuned. v0.4.5 fixes getting stuck at random; if you still get stuck somewhere,
-  F6 gets you out, and the spot saved in `BepInEx\mw2_stuck.log` helps fix it.
+- Solo is tested on Risk of Rain 2's October 8, 2026 update.
+- 2-player co-op has been played on v0.4.5. Mixing a mod-manager install with a manual install hasn't been
+  re-tested since the v0.4.4 desync fix.
+- 3-4 player lobbies and other mods aren't tested yet (with other mods, include your mod list in reports).
+- Windows only.
+- Balance is still being tuned. Stuck on geometry? F6 gets you out, and the spot is saved to
+  `BepInEx\mw2_stuck.log` so you can send it in.
 
 ## Install
 
