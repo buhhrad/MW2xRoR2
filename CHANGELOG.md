@@ -1,3 +1,33 @@
+## v0.4.6
+
+- Commencement (the Mithrix stage) has lower gravity than the other stages, and MW2 movement ignored
+  it: the jump stayed 2 m where a survivor's goes to 5.6 m, so you couldn't get over the walls out of
+  the starting area. MW2 movement now falls at each stage's gravity, the jump height follows RoR2's,
+  and jump pads launch as high as they're aimed (GitHub #2).
+- The jump now matches a Risk of Rain 2 survivor's (3.75 m, was 2 m): RoR2's stages are built around
+  it. `[Balance] JumpHeightScale` goes from 1.35 to 2.5; a config still on 1.35 moves up, a value you
+  changed stays.
+- RoR2's jump items work on the MW2 jump (GitHub #2): Wax Quail's sprint-jump boost, Faraday Spur's
+  charge (it builds on the ground, raises the jump and discharges on it), and the feather and Wax
+  Quail effects. A jump pad taken with jump held isn't counted as a jump.
+- Crouch and prone (GitHub #1): every MW2 crouch / prone bind counts (Go to Crouch, Hold Crouch, two
+  keys on one action), and the crouch / prone keys in the mod's config work too. Sprinting no longer
+  stands a crouch straight back up.
+- The MW2 First-Person FOV goes up to 120 (was capped at 90, which also cut down higher values set in
+  the config). A value the old cap lowered to 90 needs setting again.
+- Shotguns: pellets fly 2.5x MW2's range (`[Balance] ShotgunReach`), their damage falling off from
+  MW2's minimum to nothing at the end, with falloff at MW2's own ranges (`ShotgunRangeScale` back to
+  1). The SPAS-12 reaches about 45 m (was about 27 m).
+- The Sentry Gun's killstreak icon was blank on the HUD: MW2's table names an icon its multiplayer
+  files don't carry; the mod uses the Sentry Gun's own image.
+- A care package that comes to rest on a rock, tree or ledge over its marker drops to the marker so
+  it can be claimed (Care Package and Emergency Airdrop).
+- Care packages no longer drop ammo, only killstreaks.
+- The lobby's version check works both ways: a player joining on another version now sees the
+  mismatch too (only the host did), and a joiner whose host doesn't answer (v0.4.5 or older, or no
+  mod) is told so after 15 seconds.
+- Everyone in co-op needs v0.4.6: it doesn't play with v0.4.5.
+
 ## v0.4.5
 
 - Getting stuck at random with nothing in the way (the main thing players reported): MW2's player

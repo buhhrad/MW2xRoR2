@@ -41,7 +41,7 @@ use playerstate_iw4::{ENTITYNUM_NONE, PlayerState, UserCmd, pm_flags};
 use trace_iw4::{ENTITYNUM_WORLD, HITTYPE_ENTITY, Trace};
 
 /// Bumped whenever a `#[repr(C)]` struct or a function signature here changes.
-pub const ABI_VERSION: u32 = 33;
+pub const ABI_VERSION: u32 = 34;
 
 /// Sprint length multiplier on MW2's 4 s (host setting: RoR2's maps are far bigger than MW2's).
 static SPRINT_TIME_SCALE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0x3F80_0000); // 1.0
@@ -596,6 +596,24 @@ pub unsafe extern "C" fn mw2_nudge_origin(sim: *mut Mw2Sim, origin: *const [f32;
     catch_unwind(AssertUnwindSafe(|| {
         let sim = unsafe { &mut *sim };
         sim.ps.origin = unsafe { *origin };
+        1
+    }))
+    .unwrap_or(0)
+}
+
+/// Set this player's gravity (MW2's g_gravity, units/s^2; 800 at spawn). The host follows the stage's
+/// own gravity: Commencement falls at two thirds of the other stages' (GitHub #2).
+///
+/// # Safety
+/// `sim` from `mw2_create`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn mw2_set_gravity(sim: *mut Mw2Sim, gravity: f32) -> i32 {
+    if sim.is_null() || !gravity.is_finite() {
+        return 0;
+    }
+    catch_unwind(AssertUnwindSafe(|| {
+        let sim = unsafe { &mut *sim };
+        sim.ps.gravity = gravity.clamp(100.0, 3000.0).round() as i32;
         1
     }))
     .unwrap_or(0)

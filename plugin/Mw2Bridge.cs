@@ -426,7 +426,13 @@ namespace MW2RoR2
             if (!Owns(m) || sim == IntPtr.Zero) return false;
             // Applied right before each sim step until the sim has left the ground (a once-only pad
             // trigger set between steps, or one tick of it, was eaten by MW2's ground handling).
-            pendingLaunch = Space.DirToIw(velocity / Mathf.Max(Space.Scale, 1e-4f)); // axes only: scale first
+            // RoR2's pads aim for an apex under RoR2's gravity; the sim falls at MW2's 800 units/s^2. Scaling
+            // the speed by sqrt(sim g / RoR2 g) keeps the same apex and landing spot (GitHub #2: the pad up to
+            // Mithrix fell short).
+            float simG = simGravity * Space.Scale, ror2G = Mathf.Abs(Physics.gravity.y);
+            float g = ror2G > 0.1f ? Mathf.Sqrt(simG / ror2G) : 1f;
+            pendingLaunch = Space.DirToIw(velocity * g / Mathf.Max(Space.Scale, 1e-4f)); // axes only: scale first
+            Plugin.Log.LogInfo($"MW2 launch pad: x{g:F2} for gravity (sim {simG:F1} m/s^2, RoR2 {ror2G:F1})");
             launchTicks = 10;
             return true;
         }
@@ -1124,15 +1130,101 @@ namespace MW2RoR2
         int airJumps;
         bool jumpWasDown;
         // sqrt(2 * g 800 * jump_height 39) units/s, times the jump height setting's square root.
-        static float Mw2JumpSpeed => 250f * Mathf.Sqrt(Mathf.Clamp(Plugin.Instance.JumpHeightScale.Value, 0.5f, 4f));
+        float Mw2JumpSpeed => Mathf.Sqrt(2f * simGravity * 39f * JumpScaleHere);
+
+        // RoR2's gravity on a normal stage (Physics.gravity; measured -30). Commencement's is -20, and RoR2's
+        // jump there goes 1.5x as high (its jump speed is fixed, the fall slower). MW2's jump is a height
+        // (speed sqrt(2 g h)), so it stayed 2 m while RoR2's went to 5.6 m: no way over the walls out of
+        // the start (GitHub #2). The sim falls at the stage's gravity, and its jump height follows RoR2's.
+        const float Ror2Gravity = 30f;
+        float stageGravity = -1f, simGravity = 800f;
+        float JumpScaleHere => Mathf.Clamp(Plugin.Instance.JumpHeightScale.Value * Ror2Gravity / (stageGravity > 0f ? stageGravity : Ror2Gravity), 0.5f, 4f);
+
+        void KeepGravity()
+        {
+            float g = Mathf.Abs(Physics.gravity.y);
+            if (g < 1f) g = Ror2Gravity;
+            if (sim == IntPtr.Zero || Mathf.Abs(g - stageGravity) < 0.01f) return;
+            stageGravity = g;
+            simGravity = 800f * g / Ror2Gravity;
+            Native.mw2_set_gravity(sim, simGravity);
+            Native.mw2_set_jump_scale(JumpScaleHere);
+            Plugin.Log.LogInfo($"MW2 gravity: stage {g:F1} m/s^2 -> sim {simGravity:F0} units/s^2, jump x{JumpScaleHere:F2}");
+        }
+
+        // RoR2's jump items on the MW2 jump (GitHub #2: Wax Quail and Faraday Spur did nothing, only Hopoo
+        // Feather worked). RoR2's own jump is off while MW2 moves the body (JumpPatch), so its parts are
+        // done here: GenericCharacterMain.ProcessJump / ApplyJumpVelocity, CharacterBody.RecalculateStats.
+
+        /// The survivor's jumpPower over its base: Faraday Spur's charge (2% a stack of the buff, up to
+        /// 3x at 100) and anything else RoR2 puts on it scale the MW2 jump's speed the same way.
+        static float JumpPowerRatio(CharacterBody b) => b != null && b.baseJumpPower > 0f ? Mathf.Clamp(b.jumpPower / b.baseJumpPower, 0.25f, 4f) : 1f;
+
+        /// The sim just jumped off the ground: jump power, Wax Quail's sprint-jump boost (RoR2's horizontal
+        /// speed moveSpeed + sqrt(10 n k), k = acceleration x the motor's air control), then RoR2's jump event.
+        void GroundJump(CharacterBody b, bool sprinting)
+        {
+            var v = last.velocity;
+            bool changed = false;
+            float ratio = JumpPowerRatio(b);
+            if (Mathf.Abs(ratio - 1f) > 0.01f) { v.z += Mw2JumpSpeed * (ratio - 1f); changed = true; }
+            int quail = b.inventory != null ? b.inventory.GetItemCountEffective(RoR2Content.Items.JumpBoost) : 0;
+            float k = b.characterMotor != null ? b.acceleration * b.characterMotor.airControl : 0f;
+            float hSpeed = Mathf.Sqrt(v.x * v.x + v.y * v.y);
+            sprinting |= b.isSprinting;
+            if (Mw2Pilot.Active) Plugin.Log.LogInfo($"MW2 jump: quail {quail} sprinting {sprinting} k {k:F1} across {hSpeed * Space.Scale:F1} m/s");
+            if (quail > 0 && sprinting && k > 0f && hSpeed > 1f)
+            {
+                JumpEffect("Prefabs/Effects/BoostJumpEffect", b, Util.QuaternionSafeLookRotation(Space.DirToUnity(new Vec3f(v.x, v.y, 0f))));
+                float extra = Mathf.Sqrt(10f * quail * k) / Mathf.Max(Space.Scale, 1e-4f);
+                v.x += v.x / hSpeed * extra;
+                v.y += v.y / hSpeed * extra;
+                changed = true;
+            }
+            if (changed)
+            {
+                pendingLaunch = v;
+                launchTicks = 1;
+                Plugin.Log.LogInfo($"MW2 jump: jump power x{ratio:F2}{(quail > 0 && sprinting ? $", Wax Quail x{quail}" : "")}");
+            }
+            Jumped(b);
+        }
+
+        /// RoR2's own jump effects (GenericCharacterMain.ProcessJump): the feather puff on an extra jump, Wax
+        /// Quail's burst on a boosted one - seen by everyone.
+        static void JumpEffect(string prefab, CharacterBody b, Quaternion rotation)
+        {
+            var fx = LegacyResourcesAPI.Load<GameObject>(prefab);
+            if (fx != null) EffectManager.SpawnEffect(fx, new EffectData { origin = b.footPosition, rotation = rotation }, transmit: true);
+        }
+
+        /// RoR2's bookkeeping for a jump: the motor's count and the jump event (Faraday Spur's discharge,
+        /// anything else on CharacterBody.onJump), sent across the network as RoR2's own jump does.
+        void Jumped(CharacterBody b)
+        {
+            if (b.characterMotor != null) b.characterMotor.jumpCount = 1 + airJumps;
+            b.TriggerJumpEventGlobally();
+        }
+
+        /// RoR2's "grounded" is its capsule's, which often isn't under MW2 movement; items that charge on
+        /// the ground (Faraday Spur) read it. The sim's own ground is the truth (MotorGroundedPatch).
+        void KeepMotorGrounded(CharacterBody b)
+        {
+            var m = b.characterMotor;
+            if (m == null) return;
+            m.netIsGrounded = last.grounded != 0;
+            if (last.grounded != 0) m.jumpCount = 0;
+        }
+
+        public bool SimGrounded => last.grounded != 0;
 
         public void SampleKeys()
         {
             reloadHeld = In.Reload;
             // Key presses latch here (every frame) for the next sim step: read in the fixed step they
             // were missed, or seen twice when two steps ran in one frame (prone on, then off again).
-            crouchPressed |= In.KeyDown(In.CrouchKey);
-            pronePressed |= In.KeyDown(In.ProneKey);
+            crouchPressed |= In.AnyKeyDown(In.CrouchKeys);
+            pronePressed |= In.AnyKeyDown(In.ProneKeys);
         }
         bool crouchPressed, pronePressed;
 
@@ -1252,6 +1344,7 @@ namespace MW2RoR2
             Native.mw2_set_jump_scale(Plugin.Instance.JumpHeightScale.Value);
             Native.mw2_set_hybrid_movement(Plugin.Instance.AirControl.Value, Plugin.Instance.NoLandingSlowdown.Value ? 1 : 0);
             sim = Native.mw2_create(ref origin);
+            stageGravity = -1f; // a new sim starts at MW2's 800
             stuckFor = 0f;
             haveTarget = false;
             msAccumulator = 0f;
@@ -1779,6 +1872,7 @@ namespace MW2RoR2
                 ror2Moving = moves;
                 Plugin.Log.LogInfo(moves ? $"MW2 movement: RoR2 equipment moves the body ({(body.currentVehicle != null ? body.currentVehicle.name : "wings")}) - handed over" : "MW2 movement: back from RoR2's equipment movement");
             }
+            KeepGravity();
             msAccumulator += dt * 1000f;
             int msec = Mathf.FloorToInt(msAccumulator);
             if (msec < 1) return;
@@ -1853,10 +1947,12 @@ namespace MW2RoR2
             {
                 airJumps++;
                 var jv = last.velocity;
-                jv.z = Mw2JumpSpeed;
+                jv.z = Mw2JumpSpeed * JumpPowerRatio(body);
                 pendingLaunch = jv;
                 launchTicks = 2;
-                Plugin.Log.LogInfo($"MW2 air jump {airJumps}/{body.maxJumpCount - 1}");
+                Plugin.Log.LogInfo($"MW2 air jump {airJumps}/{body.maxJumpCount - 1} (jump power x{JumpPowerRatio(body):F2})");
+                JumpEffect("Prefabs/Effects/FeatherEffect", body, Quaternion.identity);
+                Jumped(body);
             }
             // A jump pad sets RoR2's "no air control until a collision" on the motor and only that
             // collision clears it - which the MW2 sim's landing doesn't make, so every pad after the
@@ -1874,7 +1970,9 @@ namespace MW2RoR2
             // isn't a RoR2 skill), so after a sprint MW2 kept getting "sprint" under the ADS button
             // and never aimed (playtest 10-06-26: stuck at the hip in first person after sprinting).
             // Aiming wins, as in MW2.
-            else if (!streaks.FreezesPlayer && !HeldStill && !(Armed && In.Ads(bank)) && (body.isSprinting || Mw2Pilot.Sprint)) buttons |= Buttons.Sprint;
+            // RoR2's sprint stays latched on while you move, and under MW2's sprint button it stood a crouch
+            // or prone straight back up (GitHub #1). A sprint press stands you up above (Stance = 0) as in MW2.
+            else if (!streaks.FreezesPlayer && !HeldStill && Stance == 0 && !(Armed && In.Ads(bank)) && (body.isSprinting || Mw2Pilot.Sprint)) buttons |= Buttons.Sprint;
             Admin.Apply(body);
             streaks.PlayerAttack = !Admin.Open && !HeldStill && In.Attack(bank);
             if (streaks.PlayerAttack && Armed) combatThisLife = true;
@@ -1907,6 +2005,7 @@ namespace MW2RoR2
             Native.mw2_set_perks(sim, Mw2Perks.EngineBits(body) | (Plugin.Instance.UnlimitedSprint.Value ? Mw2Perks.MarathonBit : 0u));
             streaks.SetHardline(Mw2Perks.Has(body, "specialty_hardline"));
 
+            bool launching = launchTicks > 0; // a pad or the stuck hop, not a jump (even with jump held)
             if (launchTicks > 0) { launchTicks--; var lv = pendingLaunch; Native.mw2_set_velocity(sim, ref lv); }
             var input = new Mw2Input
             {
@@ -1921,9 +2020,13 @@ namespace MW2RoR2
             };
             lockOn.Update(body, last.weapon, last.adsFrac, lastCam != null ? lastCam : Camera.main, sim, audio);
             var wasAt = last.origin;
-            bool wasSprinting = last.sprinting != 0;
+            bool wasSprinting = last.sprinting != 0, wasGrounded = last.grounded != 0;
+            float wasVz = last.velocity.z;
             int ok = Native.mw2_step(sim, ref input, trace, IntPtr.Zero, out last);
             if (launchTicks > 0 && last.grounded == 0) launchTicks = 0; // airborne: the launch took
+            if (ok == 1 && !launching && wasGrounded && last.grounded == 0 && (buttons & Buttons.Jump) != 0 && last.velocity.z > wasVz + Mw2JumpSpeed * 0.5f)
+                GroundJump(body, wasSprinting);
+            KeepMotorGrounded(body);
             SprintDistance(wasAt, wasSprinting);
             if (ok != 1) { Release(); RefreshEnemyStats(); return; }
             Depenetrate();
@@ -1988,6 +2091,10 @@ namespace MW2RoR2
             for (int k = 0; k < count; k++) pellets |= shotBuffer[k].pellet > 0; // a shotgun's pellets arrive together
             // RangeScale is the total vs MW2's ranges; WorldScale already stretches them.
             float rangeMul = Mathf.Max(Plugin.Instance.RangeScale.Value, 0.1f) / Mathf.Max(Plugin.Instance.WorldScale.Value, 0.1f) * (pellets ? Mathf.Max(Plugin.Instance.ShotgunRangeScale.Value, 0.1f) : 1f);
+            // MW2 stops a pellet at its minimum-damage range (IW4 bullet_range for spread weapons), so a
+            // pellet did MW2's floor damage right up to that wall and nothing past it. They fly ShotgunReach
+            // times as far here, their damage running down from the floor to nothing (Falloff's tail).
+            float reach = pellets ? Mathf.Max(Plugin.Instance.ShotgunReach.Value, 1f) : 1f;
             bool crit = body.RollCrit();
             // First person: every round leaves along the camera's own centre ray (where the
             // crosshair / sights are this frame, recoil and sway included), turned by the spread
@@ -2027,7 +2134,7 @@ namespace MW2RoR2
                     modifyOutgoingDamageCallback = Mw2Perks.Has(body, "specialty_armorpiercing") ? Mw2PerkEffects.ArmorPiercing : (BulletAttack.ModifyOutgoingDamageCallback)null,
                     force = 100f,
                     falloffModel = BulletAttack.FalloffModel.None,
-                    maxDistance = Mathf.Max(shot.maxRange * Space.Scale * rangeMul, 10f),
+                    maxDistance = Mathf.Max(shot.maxRange * Space.Scale * rangeMul * reach, 10f),
                     procCoefficient = 1f,
                     isCrit = crit,
                     radius = 0.1f,
@@ -2065,7 +2172,9 @@ namespace MW2RoR2
                         Mw2Gunfire.Impact(last.weapon, hit.point, hit.surfaceNormal, hit.collider, hit.hitHurtBox != null);
                     }
                     if (hit.hitHurtBox == null && wall == null) { wall = hit.collider; wallPoint = hit.point; wallNormal = hit.surfaceNormal; wallDist = hit.distance; }
-                    ba.damage = baseDamage * penScale * Falloff(shot, (travelled + hit.distance) / Space.Scale / rangeMul);
+                    float falloff = Falloff(shot, (travelled + hit.distance) / Space.Scale / rangeMul, shot.pellet > 0 ? shot.maxRange * reach : 0f);
+                    ba.damage = baseDamage * penScale * falloff;
+                    if (Mw2Pilot.Active && shot.pellet > 0 && enemy) Plugin.Log.LogInfo($"[pellet] {travelled + hit.distance:F1} m of {totalRange:F1}: damage x{falloff:F2}");
                     bool result = BulletAttack.defaultHitCallback(ba, ref hit);
                     ba.damage = baseDamage;
                     if (enemy) OnHit();
@@ -2155,7 +2264,9 @@ namespace MW2RoR2
             return new Vec3f(Mathf.Cos(p) * Mathf.Cos(y), Mathf.Cos(p) * Mathf.Sin(y), -Mathf.Sin(p));
         }
 
-        static float Falloff(in Mw2Shot shot, float distUnits)
+        /// `tailEndUnits` > 0 (pellets): past MW2's minimum-damage range the damage keeps falling, from
+        /// MW2's minimum to nothing there.
+        internal static float Falloff(in Mw2Shot shot, float distUnits, float tailEndUnits = 0f)
         {
             if (shot.damage <= 0f) return 1f;
             float min = shot.minDamage > 0f ? shot.minDamage : shot.damage;
@@ -2163,6 +2274,8 @@ namespace MW2RoR2
             float dmg = shot.damage;
             if (dmg != min && range != 0f && distUnits >= shot.maxDamageRange)
                 dmg = distUnits >= shot.minDamageRange ? min : Mathf.Lerp(shot.damage, min, Mathf.Clamp01((distUnits - shot.maxDamageRange) / range));
+            if (tailEndUnits > shot.minDamageRange && distUnits > shot.minDamageRange)
+                dmg = min * (1f - Mathf.Clamp01((distUnits - shot.minDamageRange) / (tailEndUnits - shot.minDamageRange)));
             return Mathf.Max(dmg, 0f) / shot.damage;
         }
 

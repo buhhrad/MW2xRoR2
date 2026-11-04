@@ -100,8 +100,16 @@ namespace MW2RoR2
             { contentLogged = true; Plugin.Log.LogInfo($"RoR2 content {ContentSig()} (states/bodies/hash: everyone in a run needs the same)"); }
             var client = NetworkManager.singleton != null ? NetworkManager.singleton.client : null;
             bool connected = client != null && client.isConnected;
-            if (!connected) { helloSent = helloAnswered = false; ClearRemotes(); return; }
-            if (!helloSent) { helloSent = true; SendHello(); }
+            if (!connected) { helloSent = heardHello = warnedSilent = false; connectedAt = -1f; ClearRemotes(); return; }
+            if (!helloSent) { helloSent = true; connectedAt = Time.unscaledTime; SendHello(); }
+            // A host on v0.4.5 or older answers only a matching hello, and one without the mod never does:
+            // say so instead of leaving the joiner guessing (their run would desync).
+            if (!NetworkServer.active && !heardHello && !warnedSilent && connectedAt >= 0f && Time.unscaledTime - connectedAt > SilentHostSeconds)
+            {
+                warnedSilent = true;
+                Plugin.Log.LogWarning($"[net] no hello from the host {SilentHostSeconds:F0} s after joining (us: build {build}, ABI {Native.ExpectedAbi})");
+                Chat.AddMessage($"<color=#ff6060>MW2 mod: no answer from the host's MW2 mod. The host may run an older version of the mod (v0.4.5 or earlier) or not have it. You run {build}; everyone needs the same version.</color>");
+            }
             LobbyUpdate();
             var body = bridge.LocalBody2;
             if (body != null && Time.unscaledTime >= nextPlayer) { nextPlayer = Time.unscaledTime + 0.05f; SendPlayer(body); }
@@ -167,8 +175,11 @@ namespace MW2RoR2
                 return;
             }
             int channel = ChannelFor(msg.kind, msg.data != null ? msg.data.Length : 0);
+            // Hellos also reach players still in the lobby (not "ready" yet): a joiner's version check
+            // can't wait for the run (playtest 10-16-26: only the host saw the mismatch).
+            bool hello = msg.kind == KHello;
             foreach (var c in NetworkServer.connections)
-                if (c != null && (c != m.conn || Echo) && c.isReady) c.SendByChannel(MsgId, msg, channel);
+                if (c != null && (c != m.conn || (Echo && !hello)) && (c.isReady || (hello && c.isConnected))) c.SendByChannel(MsgId, msg, channel);
         }
 
         static void OnClient(NetworkMessage m)
@@ -554,6 +565,7 @@ namespace MW2RoR2
 
         static void ReadHello(NetworkReader r)
         {
+            heardHello = true;
             string theirs = r.ReadString(); uint abi = r.ReadUInt32();
             bool same = theirs == build && abi == Native.ExpectedAbi;
             int perks = same ? r.ReadInt32() : -1, streakItems = same ? r.ReadInt32() : -1;
@@ -564,9 +576,23 @@ namespace MW2RoR2
             if (!same) Chat.AddMessage($"<color=#ff6060>MW2 mod mismatch: a player runs build {theirs} (ABI {abi}), you run {build} (ABI {Native.ExpectedAbi}). Everyone needs the same version of the mod.</color>");
             else if (!items) Chat.AddMessage($"<color=#ff6060>MW2 data mismatch: a player's MW2 install gave {perks} perks / {streakItems} streak items, yours {Mw2Perks.Items.Count} / {Mw2StreakItems.Items.Count}. Check everyone has MW2 installed and the mod found it.</color>");
             else if (!setup) Chat.AddMessage("<color=#ff6060>MW2 setup mismatch: another player's Risk of Rain 2 numbers its content differently from yours, so the run would desync. Usually one of you is missing RoR2BepInExPack (mod managers install it; the manual zip includes it). Everyone needs the same setup.</color>");
-            else if (!helloAnswered) { helloAnswered = true; SendHello(); } // late joiners hear back
+            // The host answers every hello, matching or not, so each joiner checks the host's build too
+            // (playtest 10-16-26: the answer went back only on a match, and only once a session, so a
+            // mismatched joiner never heard). Clients don't answer: no ping-pong.
+            if (NetworkServer.active) SendHello();
         }
-        static bool helloAnswered;
+#if MW2_DEV
+        /// Pilot: a hello from a player on another build, read as if it had arrived.
+        internal static void HelloForTest(string theirBuild, uint abi)
+        {
+            var w = new NetworkWriter();
+            w.Write(theirBuild); w.Write(abi);
+            ReadHello(new NetworkReader(w.ToArray()));
+        }
+#endif
+        static bool heardHello, warnedSilent;
+        static float connectedAt = -1f;
+        const float SilentHostSeconds = 15f;
 
         /// RoR2's own numbering of entity states and bodies, as "states/bodies/hash". Its network
         /// messages carry these indexes, so two games that number them differently misread each other:

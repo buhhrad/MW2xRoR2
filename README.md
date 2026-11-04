@@ -34,6 +34,7 @@ any Risk of Rain 2 mod manager, or the manual zip from [Releases](../../releases
 - MW2's HUD and minimap, first person or third person, and your RoR2 items show on the soldier
 - MW2's soldiers with every faction skin, MW2's death animation and death camera, and MW2's effects, sounds and announcer
 - MW2's match start on the first stage: Choose Class, the countdown and the spawn music
+- MW2 movement with RoR2's jump height, so RoR2's jump items (Hopoo Feather, Wax Quail, Faraday Spur) and jump pads work
 - Co-op through normal RoR2 lobbies. Teammates see your soldier, your streaks and your aircraft
 
 ## What you need
@@ -49,8 +50,8 @@ any Risk of Rain 2 mod manager, or the manual zip from [Releases](../../releases
 ## Status
 
 - Solo is tested on Risk of Rain 2's October 8, 2026 update.
-- 2-player co-op has been played on v0.4.5. Mixing a mod-manager install with a manual install hasn't been
-  re-tested since the v0.4.4 desync fix.
+- 2-player co-op was last played on v0.4.5; v0.4.6 hasn't had a co-op session yet. Mixing a mod-manager
+  install with a manual install hasn't been re-tested since the v0.4.4 desync fix.
 - 3-4 player lobbies and other mods aren't tested yet (with other mods, include your mod list in reports).
 - Windows only.
 - Balance is still being tuned. Stuck on geometry? F6 gets you out, and the spot is saved to
@@ -104,7 +105,7 @@ rename it back to play with them.
 | Fire / aim down sights | RoR2's primary / secondary skill keys (left / right mouse by default) |
 | Reload | R |
 | Sprint (holds your breath while aiming) | your MW2 key (or RoR2's sprint key) |
-| Crouch / prone | your MW2 keys (Left Ctrl / Z) |
+| Crouch / prone | your MW2 keys (Left Ctrl / Z), plus any you set in the config |
 | Primary / secondary weapon | 1 / 2 (your MW2 weapon-switch key works too) |
 | Lethal (hold to cook) / tactical | your MW2 keys (G / F) |
 | Knife | your MW2 key (V) |
@@ -133,7 +134,7 @@ they work like they did in MW2. The key in brackets is only for players without 
 In a run, F4 opens Choose Class, with MW2's rule: right after you spawn the new class is yours on the
 spot, but once you've fought it comes with your next spawn (the next stage, a revive or a Tactical
 Insertion). **One Man Army**, the MW2 Soldier's utility skill, is the mid-fight change. F7 switches
-first / third person (you spawn in third person). RoR2's **Settings > Gameplay** has **MW2 First-Person FOV** (65-90) and **MW2 Third Person
+first / third person (you spawn in third person). RoR2's **Settings > Gameplay** has **MW2 First-Person FOV** (65-120) and **MW2 Third Person
 Only**.
 
 **In the config file.** Everything else is in `com.buhhrad.mw2ror2.cfg`. Open it from your mod
@@ -150,6 +151,8 @@ explained in the file; these are the ones you're most likely to want:
 | `[Balance] DamageMultiplier` | 1.25 | Damage of every MW2 round (snipers, explosives and equipment have their own scales on top) |
 | `[Balance] DamageTakenScale` | 1 | Damage you take from enemies |
 | `[Balance] MoveSpeedBoost` | 1.45 | How much faster than MW2's own speed you move (RoR2's maps are big) |
+| `[Balance] JumpHeightScale` | 2.5 | Jump height vs MW2's: 2.5 is a RoR2 survivor's jump, which RoR2's stages are built for |
+| `[Balance] ShotgunReach` | 2.5 | How far shotgun pellets fly vs MW2's range, their damage falling off to nothing at the end |
 | `[Balance] UnlimitedSprint` | true | Sprint never runs out |
 | `[Balance] RegenDelay` | 0 | MW2 health regen after this many seconds unhurt. 0 = off, RoR2's healing only (MW2's was 5) |
 | `[Progress] KillXpScale` | 0.1 | XP per kill as a share of MW2's 100 |

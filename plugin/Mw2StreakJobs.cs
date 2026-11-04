@@ -279,6 +279,8 @@ namespace MW2RoR2
     {
         public Vector3 Pos;
         public uint Contents; // 0 = MW2's ammo crate
+        /// Where the marker landed: a crate that comes to rest on something above it drops through to it.
+        public Vector3? Marker;
         public readonly uint Id;
         public readonly bool Remote; // a teammate's crate
         float fall, held, life, still;
@@ -296,9 +298,10 @@ namespace MW2RoR2
             {
                 uint roll = (uint)UnityEngine.Random.Range(0, int.MaxValue);
                 id = mega ? Native.mw2_streak_roll_mega(roll) : Native.mw2_streak_roll_airdrop(roll);
-                if (id == 0 || built(id)) break;
+                // Never MW2's ammo crate (playtest 10-16-26: "remove ammo as a drop from care pack"): roll again.
+                if (id != 0 && built(id)) break;
             }
-            return id;
+            return id != 0 ? id : Native.StreakId("uav");
         }
 
         /// A teammate's crate that has landed at `at`.
@@ -354,6 +357,22 @@ namespace MW2RoR2
                     landed = true;
                     rb.isKinematic = true;
                     Pos = go.transform.position - go.transform.up * (go.GetComponent<BoxCollider>()?.size.y * 0.5f ?? 0f);
+                    // Playtest 10-23-26: "make it so the care package can fall through the top of the map ... not
+                    // being able to claim ur package": resting on a rock top, a tree or a ledge over the
+                    // marker, it goes down to the marker's ground.
+                    if (Marker is Vector3 m)
+                    {
+                        var g = Mw2Strike.Ground(m);
+                        var flat = new Vector2(Pos.x - g.x, Pos.z - g.z);
+                        if (Pos.y - g.y > 2.5f && flat.magnitude < 15f)
+                        {
+                            var down = new Vector3(Pos.x, Mw2Strike.Ground(new Vector3(Pos.x, g.y, Pos.z)).y, Pos.z);
+                            var to = Mathf.Abs(down.y - g.y) < 1.5f ? down : g; // straight down when that is the marker's ground, else the marker
+                            Plugin.Log.LogInfo($"MW2 care package: came to rest {Pos.y - g.y:F1} m over the marker; dropped through to it");
+                            go.transform.position += to - Pos;
+                            Pos = to;
+                        }
+                    }
                 }
                 return true;
             }
@@ -492,7 +511,7 @@ namespace MW2RoR2
                     if (since > 0.6f)
                     {
                         // Linked at tag_ground (32,0,5) then PhysicsLaunched: falls from under the bird.
-                        K.AddCrate(new Mw2Crate(Body, pos - Vector3.up * 1.5f, Mw2Crate.Roll(false, K.IsBuilt)));
+                        K.AddCrate(new Mw2Crate(Body, pos - Vector3.up * 1.5f, Mw2Crate.Roll(false, K.IsBuilt)) { Marker = site });
                         Plugin.Log.LogInfo($"MW2 care package: crate dropped {Age:F1} s after the call, {pos.y - site.y:F0} m over the marker");
                         leg = Leg.Out; since = 0f;
                     }
@@ -553,7 +572,7 @@ namespace MW2RoR2
             {
                 // Linked at tag_ground (64, 32, -128).
                 var at = pos - Vector3.up * U(128f) + Vector3.Cross(Vector3.up, dir) * U(32f);
-                K.AddCrate(new Mw2Crate(Body, at, Mw2Crate.Roll(true, K.IsBuilt)));
+                K.AddCrate(new Mw2Crate(Body, at, Mw2Crate.Roll(true, K.IsBuilt)) { Marker = site });
                 dropped++;
                 nextDrop = Age + 0.1f;
             }

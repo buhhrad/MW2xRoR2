@@ -26,7 +26,7 @@ namespace MW2RoR2
         /// 10-04-26: the SPAS's left arm edge while running).
         /// The player's cg_fov (config FieldOfView; MW2's 65 by default). IW4 draws the world and the
         /// gun with it, so a wider FOV shows more and the gun sits smaller, as in MW2.
-        public static float CgFov => Plugin.Instance != null ? Mathf.Clamp(Plugin.Instance.FieldOfView.Value, 65f, 90f) : Mw2ViewmodelFov;
+        public static float CgFov => Plugin.Instance != null ? Mathf.Clamp(Plugin.Instance.FieldOfView.Value, 65f, Mw2FovSetting.Max) : Mw2ViewmodelFov;
         public static float Vertical(float cgFov) => 2f * Mathf.Atan(Mathf.Tan(cgFov * 0.5f * Mathf.Deg2Rad) * 0.75f) * Mathf.Rad2Deg;
         public static float Mw2ViewmodelFovVertical => Vertical(CgFov);
         /// The world camera wider than the gun's, as a tangent ratio (the showcase: its 16:9 frame shows

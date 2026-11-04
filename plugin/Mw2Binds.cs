@@ -14,6 +14,8 @@ namespace MW2RoR2
     static class Mw2Binds
     {
         public static readonly Dictionary<string, KeyCode> Keys = new Dictionary<string, KeyCode>();
+        /// Every key bound to each command (MW2 binds two keys to one command as two lines).
+        static readonly Dictionary<string, List<KeyCode>> all = new Dictionary<string, List<KeyCode>>();
         public static string Source;
 
         public static void Load(string commonMpPath)
@@ -36,6 +38,15 @@ namespace MW2RoR2
             catch (Exception e) { Plugin.Log.LogWarning($"MW2 binds: {e.Message}"); }
         }
 
+#if MW2_DEV
+        /// Pilot: binds from these lines instead of the player's (Load again to put theirs back).
+        internal static void ParseForTest(string[] lines)
+        {
+            Keys.Clear(); all.Clear();
+            Parse(lines);
+        }
+#endif
+
         static readonly Regex Bind = new Regex("^\\s*bind\\s+(\\S+)\\s+\"([^\"]+)\"", RegexOptions.IgnoreCase);
 
         static void Parse(string[] lines)
@@ -47,6 +58,8 @@ namespace MW2RoR2
                 var key = ToKey(m.Groups[1].Value);
                 if (key == KeyCode.None || key == KeyCode.Mouse2) continue; // MOUSE3 = RoR2 ping
                 string cmd = m.Groups[2].Value.Trim().ToLowerInvariant();
+                if (!all.TryGetValue(cmd, out var list)) all[cmd] = list = new List<KeyCode>();
+                if (!list.Contains(key)) list.Add(key);
                 // First keyboard bind wins over mouse binds for the same command.
                 if (Keys.TryGetValue(cmd, out var have) && have < KeyCode.Mouse0 && key >= KeyCode.Mouse0) continue;
                 if (!Keys.ContainsKey(cmd) || key < KeyCode.Mouse0) Keys[cmd] = key;
@@ -57,8 +70,21 @@ namespace MW2RoR2
         // stance - crouch and sprint at once, and sprint stands you up). Keyboard binds only.
         static KeyCode? Keyboard(KeyCode? k) => k.HasValue && k.Value < KeyCode.Mouse0 ? k : null;
         public static KeyCode? Sprint => Keyboard(For("+breath_sprint", "+sprint"));
-        public static KeyCode? Crouch => Keyboard(For("togglecrouch", "+movedown", "lowerstance"));
-        public static KeyCode? Prone => Keyboard(For("toggleprone", "+prone", "goprone"));
+        // Every MW2 stance command a key can carry (GitHub #1: crouch and prone did nothing - MW2's own
+        // "Go to Crouch" (gocrouch) wasn't read, and only one key per command was).
+        static readonly string[] crouchCommands = { "togglecrouch", "gocrouch", "+movedown", "lowerstance" };
+        static readonly string[] proneCommands = { "toggleprone", "goprone", "+prone" };
+        public static KeyCode? Crouch => Keyboard(For(crouchCommands));
+        public static KeyCode? Prone => Keyboard(For(proneCommands));
+        public static IEnumerable<KeyCode> CrouchKeys => KeyboardAll(crouchCommands);
+        public static IEnumerable<KeyCode> ProneKeys => KeyboardAll(proneCommands);
+
+        static IEnumerable<KeyCode> KeyboardAll(string[] commands)
+        {
+            foreach (var c in commands)
+                if (all.TryGetValue(c, out var keys))
+                    foreach (var k in keys) if (k < KeyCode.Mouse0) yield return k;
+        }
         /// MW2's use key (+activate: F on PC) - the killstreak rides' thermal toggle.
         public static KeyCode? Use => Keyboard(For("+activate", "+usereload"));
 
@@ -87,8 +113,8 @@ namespace MW2RoR2
 
         static IEnumerable<string> Describe()
         {
-            foreach (var c in new[] { "+actionslot 4", "+frag", "+smoke", "+breath_sprint", "+holdbreath", "togglecrouch", "toggleprone", "+movedown", "+prone" })
-                if (Keys.TryGetValue(c, out var k)) yield return $"{c}={Label(k)}";
+            foreach (var c in new[] { "+actionslot 4", "+frag", "+smoke", "+breath_sprint", "+holdbreath", "togglecrouch", "gocrouch", "+movedown", "lowerstance", "toggleprone", "goprone", "+prone" })
+                if (all.TryGetValue(c, out var keys)) yield return $"{c}={string.Join("/", keys.ConvertAll(Label))}";
         }
 
         static KeyCode ToKey(string name)

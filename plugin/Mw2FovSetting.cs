@@ -14,17 +14,19 @@ namespace MW2RoR2
     static class Mw2FovSetting
     {
         public const string Name = "mw2_cg_fov";
+        /// cg_fov's top (GitHub #1: "cg_fov doesn't stick" - 90 was the cap, under IW4x players' 100-120).
+        public const float Max = 120f;
         const string Token = "MW2_SETTINGS_CG_FOV";
         static bool registered;
 
         class FovConVar : BaseConVar
         {
-            public FovConVar() : base(Name, ConVarFlags.None, "65", "MW2 first-person field of view (cg_fov, 65-90).") { }
+            public FovConVar() : base(Name, ConVarFlags.None, "65", "MW2 first-person field of view (cg_fov, 65-120).") { }
 
             public override void SetString(string newValue)
             {
                 if (TextSerialization.TryParseInvariant(newValue, out float v))
-                    Plugin.Instance.FieldOfView.Value = Mathf.Round(Mathf.Clamp(v, 65f, 90f));
+                    Plugin.Instance.FieldOfView.Value = Mathf.Round(Mathf.Clamp(v, 65f, Max));
             }
 
             public override string GetString() => TextSerialization.ToStringInvariant(Plugin.Instance.FieldOfView.Value);
@@ -97,7 +99,7 @@ namespace MW2RoR2
             s.settingName = Name;
             s.nameToken = Token;
             s.minValue = 65f;
-            s.maxValue = 90f;
+            s.maxValue = Max;
             s.formatString = "{0:0}";
             foreach (var label in copy.GetComponentsInChildren<LanguageTextMeshController>(true))
                 if (label.token == template.nameToken) label.token = Token;

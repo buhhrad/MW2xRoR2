@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace MW2RoR2
 {
-    [BepInPlugin(Guid, "MW2 x Risk of Rain 2", "0.4.5")]
+    [BepInPlugin(Guid, "MW2 x Risk of Rain 2", "0.4.6")]
     public unsafe class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.buhhrad.mw2ror2";
@@ -34,7 +34,7 @@ namespace MW2RoR2
         internal ConfigEntry<float> ExplosiveDamageScale;
         internal ConfigEntry<float> EnemyPersonalSpace;
         internal ConfigEntry<float> RangeScale, WorldScale;
-        internal ConfigEntry<float> ShotgunRangeScale;
+        internal ConfigEntry<float> ShotgunRangeScale, ShotgunReach;
         internal ConfigEntry<bool> UnlimitedSprint, ThirdPersonStart, ThirdPersonOnly, SkipIntro, DamageFlinch;
         internal ConfigEntry<float> FieldOfView;
         internal ConfigEntry<float> JumpHeightScale, AirControl, FlinchScale;
@@ -140,7 +140,9 @@ namespace MW2RoR2
             EquipmentDamageScale = Config.Bind("Balance", "EquipmentDamageScale", 1.8f, "Extra damage on frags, Semtex, C4 and claymores, on top of ExplosiveDamageScale.");
             WorldScale = Config.Bind("Character", "WorldScale", 1.5f, "Size of everything MW2 (soldier, sentry, aircraft, effects, movement) relative to MW2's own scale, to fit RoR2's bigger world. 1 = MW2 size next to the survivor's capsule.");
             RangeScale = Config.Bind("Balance", "RangeScale", 1f, "Multiplier on MW2's damage-falloff ranges (1 = MW2's own ranges). Was 2, where falloff almost never bit.");
-            ShotgunRangeScale = Config.Bind("Balance", "ShotgunRangeScale", 1.5f, "Extra range multiplier for multi-pellet weapons (shotguns), on top of RangeScale.");
+            ShotgunRangeScale = Config.Bind("Balance", "ShotgunRangeScale", 1f, "Extra multiplier on shotguns' damage-falloff ranges, on top of RangeScale (1 = MW2's own, like every other gun).");
+            ShotgunReach = Config.Bind("Balance", "ShotgunReach", 2.5f,
+                "How far shotgun pellets fly, as a multiple of where MW2 stops them (their minimum-damage range). Past MW2's range the damage keeps falling, from MW2's minimum to nothing at the end. 1 = MW2's.");
             MoveSpeedScale = Config.Bind("Balance", "MoveSpeedScale", 0f,
                 "Multiplier on MW2 movement speed. 0 = automatic: MW2's own ground speed in metres (an MW2 unit is an inch).");
             // playtest 10-03-26: MW2's own speed felt slow on RoR2's maps, enemies hit too hard.
@@ -151,11 +153,11 @@ namespace MW2RoR2
             FlinchScale = Config.Bind("General", "FlinchScale", 0.35f, "How hard the view jolts when you're hit, vs MW2's (1 = MW2: at least 5 degrees every hit). RoR2's own screen shake is its own slider in RoR2's settings.");
             AirControl = Config.Bind("Balance", "AirControl", 4f, "Extra steering in the air on top of MW2's (0 = MW2 only, whose air control is 1). RoR2-style: jumps out of a sprint keep their momentum and follow the stick.");
             NoLandingSlowdown = Config.Bind("Balance", "NoLandingSlowdown", true, "Skip MW2's landing drag (friction up to 2.5x after a jump, 2x after a hard landing).");
-            JumpHeightScale = Config.Bind("Balance", "JumpHeightScale", 1.35f, "Jump height vs MW2's (39 units): RoR2's curbs and rocks a survivor jumps onto need a bit more.");
+            JumpHeightScale = Config.Bind("Balance", "JumpHeightScale", 2.5f, "Jump height vs MW2's (39 units). 2.5 = a RoR2 survivor's jump (3.75 m), which RoR2's stages are built around (walls out of Commencement's start). Follows the stage's gravity as RoR2's does (1.5x on Commencement).");
             UnlimitedSprint = Config.Bind("Balance", "UnlimitedSprint", true, "Sprint never runs out (MW2's Marathon), for RoR2's big maps.");
             FieldOfView = Config.Bind("View", "FieldOfView", 65f, new ConfigDescription(
-                "MW2's cg_fov in first person: horizontal degrees on a 4:3 screen (MW2's default 65; 65-90). The gun and ADS zoom follow it, as in MW2. Also in RoR2's Settings > Gameplay (MW2 First-Person FOV).",
-                new AcceptableValueRange<float>(65f, 90f)));
+                "MW2's cg_fov in first person: horizontal degrees on a 4:3 screen (MW2's default 65; 65-120, IW4x's range). The gun and ADS zoom follow it, as in MW2. Also in RoR2's Settings > Gameplay (MW2 First-Person FOV).",
+                new AcceptableValueRange<float>(65f, 120f)));
             DamageFlinch = Config.Bind("General", "DamageFlinch", true, "MW2's view kick when you're shot (approximate: IW4's bg_viewKick values as recalled, not read from the game).");
             SkipIntro = Config.Bind("General", "SkipIntro", true, "Skip RoR2's opening cutscene as soon as it can be skipped (what pressing through it does).");
             ThirdPersonOnly = Config.Bind("View", "ThirdPersonOnly", false, "Never first person: aiming down the sights zooms over the shoulder (scopes still show their overlay) and F7 does nothing.");
@@ -184,6 +186,11 @@ namespace MW2RoR2
             StreakFlightHeight = Config.Bind("Killstreaks", "FlightHeight", 2.5f,
                 "Aircraft killstreaks fly this many times MW2's height over the ground (RoR2's stages are taller and rougher than MW2's maps). Jets, the Stealth Bomber and the C-130 take it whole (the Emergency Airdrop C-130 x1.5 more); helicopters and the Harrier a third of the raise. 1 = MW2's.");
             if (balanceRev.Value < 5) { StreakFlightHeight.Value = 2.5f; balanceRev.Value = 5; } // 2 -> 2.5 (playtest: "a little bit higher")
+            // playtest 10-14-26: "needs more range, and the farther the pellets go the damage needs to
+            // fall off, the shotgun is already op": falloff at MW2's own ranges (was 1.5x), reach via ShotgunReach.
+            if (balanceRev.Value < 6) { ShotgunRangeScale.Value = 1f; balanceRev.Value = 6; }
+            // GitHub #2: MW2's jump (1.35x: 2.0 m) was half a survivor's (3.75 m); RoR2's walls are built for theirs.
+            if (balanceRev.Value < 7) { if (Mathf.Approximately(JumpHeightScale.Value, 1.35f)) JumpHeightScale.Value = 2.5f; balanceRev.Value = 7; }
             // playtest 10-06-26: killstreak swaps came out of chests too often (was 0.15).
             if (balanceRev.Value < 4) { StreakChestChance.Value = 0.05f; balanceRev.Value = 4; }
             // MW2's default class: frag + flashbangs. G is MW2's PC lethal key; MW2's tactical is Q,
@@ -280,6 +287,8 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
             var harmony = new Harmony(Guid);
             harmony.PatchAll(typeof(MotorPatch));
             harmony.PatchAll(typeof(JumpPadPatch));
+            harmony.PatchAll(typeof(JumpPatch));
+            harmony.PatchAll(typeof(MotorGroundedPatch));
             harmony.PatchAll(typeof(SkillPatch));
             harmony.PatchAll(typeof(EnemySpeedPatch));
             // Playtest runs work on a copy of the player's data (classes, challenges), like their XP.
@@ -588,10 +597,12 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
 
         void ResolveTacticalInsertionKey()
         {
-            var taken = new System.Collections.Generic.HashSet<KeyCode> { KeyCode.R, KeyCode.F6, KeyCode.F7, KeyCode.F8, KeyCode.F10, In.CrouchKey, In.ProneKey,
+            var taken = new System.Collections.Generic.HashSet<KeyCode> { KeyCode.R, KeyCode.F6, KeyCode.F7, KeyCode.F8, KeyCode.F10,
                 PrimaryKey.Value, SecondaryKey.Value, NextWeaponKey.Value, AltWeaponKey.Value, StreakKey.Value, LethalKey.Value,
                 TacticalKey.Value, MeleeKey.Value, CreateAClassKey.Value, ChangeClassKey.Value, CreateAStreakKey.Value };
             if (Mw2Binds.Sprint is KeyCode sprint) taken.Add(sprint);
+            taken.UnionWith(In.CrouchKeys);
+            taken.UnionWith(In.ProneKeys);
             var want = TacticalInsertionKey.Value;
             TacticalInsertionKeyInPlay = want;
             if (!taken.Contains(want)) return;
@@ -652,6 +663,31 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
             var motor = other != null ? other.GetComponent<CharacterMotor>() : null;
             if (bridge == null || motor == null || motor.disableAirControlUntilCollision || !bridge.Owns(motor)) return;
             if (bridge.Launch(motor, __instance.jumpVelocity)) Plugin.Log.LogInfo($"MW2 launch pad: {__instance.jumpVelocity}");
+        }
+    }
+
+    // RoR2's jump sets a velocity MW2 movement overwrites, but it still counted jumps and fired the jump
+    // event at its own times. The MW2 sim jumps; Mw2Bridge does RoR2's part of it (GroundJump / Jumped).
+    [HarmonyPatch(typeof(EntityStates.GenericCharacterMain), nameof(EntityStates.GenericCharacterMain.ProcessJump), new[] { typeof(bool) })]
+    static class JumpPatch
+    {
+        static bool Prefix(EntityStates.GenericCharacterMain __instance)
+        {
+            var bridge = Plugin.Instance != null ? Plugin.Instance.Bridge : null;
+            var motor = __instance.outer != null ? __instance.outer.GetComponent<CharacterMotor>() : null;
+            return bridge == null || motor == null || !bridge.Owns(motor);
+        }
+    }
+
+    // RoR2's grounded is its capsule's; under MW2 movement the sim's ground is the truth (Faraday Spur
+    // charges only on the ground: GitHub #2).
+    [HarmonyPatch(typeof(CharacterMotor), nameof(CharacterMotor.isGrounded), MethodType.Getter)]
+    static class MotorGroundedPatch
+    {
+        static void Postfix(CharacterMotor __instance, ref bool __result)
+        {
+            var bridge = Plugin.Instance != null ? Plugin.Instance.Bridge : null;
+            if (bridge != null && bridge.Owns(__instance)) __result = bridge.SimGrounded;
         }
     }
 

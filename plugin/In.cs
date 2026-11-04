@@ -1,3 +1,4 @@
+using System.Linq;
 using RoR2;
 using UnityEngine;
 
@@ -40,10 +41,40 @@ namespace MW2RoR2
         {
             if (Mw2Pilot.Sprint) return true;
             if (Mw2Binds.Sprint is KeyCode s) return Key(s);
-            return b != null && b.sprint.down && !Key(CrouchKey) && !Key(ProneKey);
+            return b != null && b.sprint.down && !AnyKey(CrouchKeys) && !AnyKey(ProneKeys);
         }
-        public static KeyCode CrouchKey => Mw2Binds.Crouch ?? Plugin.Instance.CrouchKey.Value;
-        public static KeyCode ProneKey => Mw2Binds.Prone ?? Plugin.Instance.ProneKey.Value;
+
+        /// Crouch / prone: every key their MW2 binds give the stance, plus the config's key when it was
+        /// changed from the default or MW2 has none (GitHub #1: keys set in the .cfg did nothing while
+        /// MW2's binds were read). A key on both is crouch.
+        public static KeyCode[] CrouchKeys { get { Stances(); return crouchKeys; } }
+        public static KeyCode[] ProneKeys { get { Stances(); return proneKeys; } }
+        static KeyCode[] crouchKeys = new KeyCode[0], proneKeys = new KeyCode[0];
+        static KeyCode stanceCfgCrouch = KeyCode.None, stanceCfgProne = KeyCode.None;
+        /// MW2's binds were (re)read: work the stance keys out again.
+        internal static void ResetStances() => stancesBuilt = false;
+        static bool stancesBuilt;
+
+        static void Stances()
+        {
+            var p = Plugin.Instance;
+            if (p.CrouchKey.Value == stanceCfgCrouch && p.ProneKey.Value == stanceCfgProne && stancesBuilt) return;
+            stancesBuilt = true;
+            stanceCfgCrouch = p.CrouchKey.Value; stanceCfgProne = p.ProneKey.Value;
+            var crouch = new System.Collections.Generic.List<KeyCode>(Mw2Binds.CrouchKeys);
+            if (crouch.Count == 0 || !Equals(p.CrouchKey.Value, p.CrouchKey.DefaultValue)) crouch.Add(p.CrouchKey.Value);
+            var prone = new System.Collections.Generic.List<KeyCode>(Mw2Binds.ProneKeys);
+            if (prone.Count == 0 || !Equals(p.ProneKey.Value, p.ProneKey.DefaultValue)) prone.Add(p.ProneKey.Value);
+            prone.RemoveAll(k => k == KeyCode.None || crouch.Contains(k));
+            crouch.RemoveAll(k => k == KeyCode.None);
+            crouchKeys = crouch.Distinct().ToArray();
+            proneKeys = prone.Distinct().ToArray();
+            if (proneKeys.Length == 0) Plugin.Log.LogWarning($"MW2 stance keys: no prone key ({p.ProneKey.Value} is crouch). Set Keys.ProneKey in com.buhhrad.mw2ror2.cfg or bind toggleprone in MW2.");
+            Plugin.Log.LogInfo($"MW2 stance keys: crouch {string.Join("/", crouchKeys.Select(Mw2Binds.Label))}, prone {string.Join("/", proneKeys.Select(Mw2Binds.Label))}");
+        }
+
+        public static bool AnyKey(KeyCode[] keys) { foreach (var k in keys) if (Key(k)) return true; return false; }
+        public static bool AnyKeyDown(KeyCode[] keys) { foreach (var k in keys) if (KeyDown(k)) return true; return false; }
         public static bool Jump(InputBankTest b) => (b != null && b.jump.down) || Mw2Pilot.Jump;
         public static bool Interact(InputBankTest b) => (b != null && b.interact.down) || Mw2Pilot.Interact;
         public static bool InteractPressed(InputBankTest b) => (b != null && b.interact.justPressed) || Mw2Pilot.Consume(ref Mw2Pilot.InteractPulse);

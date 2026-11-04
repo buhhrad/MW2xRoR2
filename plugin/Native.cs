@@ -200,7 +200,7 @@ namespace MW2RoR2
 
     public static unsafe class Native
     {
-        public const uint ExpectedAbi = 33;
+        public const uint ExpectedAbi = 34;
         public const int TraceSize = 36, InputSize = 28, StateSize = 96, ShotSize = 56, ClipInfoSize = 16, StreakStateSize = 76, RankSize = 16, WeaponViewSize = 32, GlyphSize = 40, ViewSwaySize = 24;
         const string Lib = "mw2sim";
 
@@ -214,6 +214,7 @@ namespace MW2RoR2
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_nudge_origin(IntPtr sim, ref Vec3f origin);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_weapon_bob(IntPtr sim, out Vec3f bob);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_set_velocity(IntPtr sim, ref Vec3f velocity);
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_set_gravity(IntPtr sim, float gravity);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_step(IntPtr sim, ref Mw2Input input, TraceFn trace, IntPtr user, out Mw2State state);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mw2_load_weapons(byte* path, UIntPtr len);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern uint mw2_weapon_index(byte* name, UIntPtr len);

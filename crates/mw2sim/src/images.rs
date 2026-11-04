@@ -100,7 +100,17 @@ fn image_for(name: &str) -> String {
         .ok()
         .and_then(|m| m.as_ref().and_then(|m| m.get(&name.trim_start_matches(',').to_ascii_lowercase()).cloned()))
         .map(|img| img.trim_start_matches(',').to_owned())
-        .unwrap_or_else(|| name.trim_start_matches(',').to_owned())
+        .unwrap_or_else(|| missing_material_image(name.trim_start_matches(',')).to_owned())
+}
+
+/// Materials MW2's tables name that common_mp doesn't carry, to the image they draw. killstreakTable
+/// gives the Sentry Gun's dpad icon as `dpad_killstreak_sentry`; its image is `dpad_sentry_gun`
+/// (iw_00.iwd). Playtest 10-23-26: "Sentry Turret is missing an image file on the hud".
+fn missing_material_image(name: &str) -> &str {
+    match name.to_ascii_lowercase().as_str() {
+        "dpad_killstreak_sentry" => "dpad_sentry_gun",
+        _ => name,
+    }
 }
 
 /// (width, height, RGBA8 bottom row first) for a HUD material or image name.
