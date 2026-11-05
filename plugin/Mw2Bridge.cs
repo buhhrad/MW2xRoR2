@@ -1932,8 +1932,13 @@ namespace MW2RoR2
             if (!jumpDown) jumpUsedForStance = false;
             if (!streaks.FreezesPlayer && !HeldStill && !Mw2Deathstreaks.InLastStand)
             {
-                if (Mw2Pilot.Consume(ref crouchPressed) || Mw2Pilot.Consume(ref Mw2Pilot.CrouchPulse)) Stance = Stance == 1 ? 0 : 1;
-                if (Mw2Pilot.Consume(ref pronePressed) || Mw2Pilot.Consume(ref Mw2Pilot.PronePulse)) Stance = Stance == 2 ? 0 : 2;
+                // The key latches are read here directly, not through Mw2Pilot.Consume: in a release build that
+                // is a stub returning false, and every crouch / prone press was dropped (GitHub #1, since v0.4.3).
+                int stanceWas = Stance;
+                if (crouchPressed || Mw2Pilot.Consume(ref Mw2Pilot.CrouchPulse)) Stance = Stance == 1 ? 0 : 1;
+                if (pronePressed || Mw2Pilot.Consume(ref Mw2Pilot.PronePulse)) Stance = Stance == 2 ? 0 : 2;
+                // One line per stance key press, so a player's log shows the keys reach the stance.
+                if (Stance != stanceWas) Plugin.Log.LogInfo($"MW2 stance: {(Stance == 1 ? "crouch" : Stance == 2 ? "prone" : "stand")} ({(crouchPressed ? "crouch" : "prone")} key)");
                 if (Stance != 0 && jumpPressed) { Stance = Stance == 2 ? 1 : 0; jumpUsedForStance = true; }
                 if (Stance != 0 && sprintPressed) Stance = 0;
             }

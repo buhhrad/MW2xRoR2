@@ -24,7 +24,7 @@ namespace MW2RoR2
             {
                 var root = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(commonMpPath)));
                 var players = Path.Combine(root ?? "", "players");
-                if (!Directory.Exists(players)) return;
+                if (!Directory.Exists(players)) { Plugin.Log.LogInfo($"MW2 binds: no {players} folder, using the keys in the config"); return; }
                 foreach (var name in new[] { "config_mp.cfg", "iw4x_config.cfg", "config.cfg" })
                 {
                     var f = Path.Combine(players, name);
@@ -34,6 +34,7 @@ namespace MW2RoR2
                     break;
                 }
                 if (Source != null) Plugin.Log.LogInfo($"MW2 binds from {Source}: " + string.Join(", ", Describe()));
+                else Plugin.Log.LogInfo($"MW2 binds: no config_mp.cfg / iw4x_config.cfg / config.cfg in {players}, using the keys in the config");
             }
             catch (Exception e) { Plugin.Log.LogWarning($"MW2 binds: {e.Message}"); }
         }

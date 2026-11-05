@@ -1,3 +1,11 @@
+## v0.4.7
+
+- Crouch and prone did nothing in every download since v0.4.3 (GitHub #1): the keys were read, then
+  dropped by a leftover from the developer test tools that the public build replaces. Fixed, and
+  checked on a public build with real key presses: crouch, prone and back up.
+- The log now notes each crouch / prone change and, if your MW2 key binds weren't used, why.
+- Everyone in co-op needs v0.4.7.
+
 ## v0.4.6
 
 - Commencement (the Mithrix stage) has lower gravity than the other stages, and MW2 movement ignored

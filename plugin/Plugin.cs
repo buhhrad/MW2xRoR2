@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace MW2RoR2
 {
-    [BepInPlugin(Guid, "MW2 x Risk of Rain 2", "0.4.6")]
+    [BepInPlugin(Guid, "MW2 x Risk of Rain 2", "0.4.7")]
     public unsafe class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.buhhrad.mw2ror2";
@@ -281,6 +281,7 @@ StatusLine = Config.Bind("Debug", "StatusLine", false, "Show the developer statu
                 if (Mw2Binds.For("weapnext") is KeyCode nk) NextWeaponKey.Value = nk;
                 Config.SaveOnConfigSet = save;
             }
+            else Logger.LogInfo("MW2 binds: off ([Keys] UseMw2Binds = false), using the keys in the config");
             if (!weaponsOk) Logger.LogWarning($"No MW2 weapons loaded (path: {CommonMpPath.Value}). Movement only.");
             ResolveTacticalInsertionKey();
 

@@ -33,7 +33,8 @@ namespace MW2RoR2
         public static bool ThirdOnlyConfigTest => false;
         public static void Steer(Transform cam) { }
         public static void AfterCamera(Transform cam) { }
-        public static bool Consume(ref bool pulse) => false;
+        // As in the pilot: take the flag and clear it (a stub returning false here dropped real crouch / prone presses).
+        public static bool Consume(ref bool pulse) { bool p = pulse; pulse = false; return p; }
         public static bool Wants(string step) => false;
     }
 

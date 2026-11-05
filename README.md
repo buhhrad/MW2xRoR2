@@ -50,7 +50,7 @@ any Risk of Rain 2 mod manager, or the manual zip from [Releases](../../releases
 ## Status
 
 - Solo is tested on Risk of Rain 2's October 8, 2026 update.
-- 2-player co-op was last played on v0.4.5; v0.4.6 hasn't had a co-op session yet. Mixing a mod-manager
+- 2-player co-op was last played on v0.4.5; the versions since haven't had a co-op session yet. Mixing a mod-manager
   install with a manual install hasn't been re-tested since the v0.4.4 desync fix.
 - 3-4 player lobbies and other mods aren't tested yet (with other mods, include your mod list in reports).
 - Windows only.
